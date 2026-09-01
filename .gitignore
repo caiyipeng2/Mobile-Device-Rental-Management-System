@@ -1,0 +1,17 @@
+.codegraph/
+.worktrees/
+.tools/
+.vs/
+.idea/
+bin/
+obj/
+TestResults/
+coverage/
+artifacts/
+node_modules/
+.playwright/
+wwwroot/uploads/
+.env
+appsettings.Local.json
+*.user
+*.suo

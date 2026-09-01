@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>测试设备台账 - 界面预览总览</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --canvas: #eef2f6;
+      --surface: #ffffff;
+      --ink: #172033;
+      --soft: #667085;
+      --line: #d9e0e8;
+      --primary: #2459d3;
+      --font: "Segoe UI", "Microsoft YaHei UI", Arial, sans-serif;
+      --data: "Cascadia Mono", Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font); letter-spacing: 0; }
+    html { scrollbar-width: none; }
+    html::-webkit-scrollbar { width: 0; height: 0; }
+    body { padding: 44px; }
+    header { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 28px; display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; }
+    h1 { margin: 0; font-size: 30px; }
+    .subtitle { margin-top: 9px; color: var(--soft); font-size: 14px; }
+    .meta { font-family: var(--data); color: var(--soft); font-size: 12px; text-align: right; line-height: 1.7; }
+    h2 { margin: 34px 0 16px; font-size: 19px; }
+    .desktop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    .mobile-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px; align-items: start; }
+    figure { margin: 0; border: 1px solid var(--line); background: var(--surface); padding: 8px; border-radius: 6px; }
+    figure img { width: 100%; height: auto; display: block; border: 1px solid #e5e9ef; }
+    figcaption { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 4px 1px; font-size: 12px; font-weight: 650; }
+    .id { color: var(--primary); font-family: var(--data); font-size: 10px; }
+    .footer { border-top: 1px solid var(--line); margin-top: 32px; padding-top: 18px; color: var(--soft); font-size: 12px; display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>测试设备台账 · 界面预览</h1><div class="subtitle">中性设备台账 / 桌面高密度 / 移动端分组行 / 合成数据</div></div>
+    <div class="meta">UI PREVIEW v1.0<br>2026-09-01 · ASIA/SHANGHAI</div>
+  </header>
+  <main>
+    <h2>桌面端 · 1440 × 1024</h2>
+    <section class="desktop-grid">
+      <figure><img src="screenshots/desktop/d01-auth.png" alt="账户入口"><figcaption><span>账户入口</span><span class="id">D01</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d02-devices.png" alt="普通用户设备列表"><figcaption><span>普通用户设备操作台</span><span class="id">D02</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d03-device-detail.png" alt="设备详情"><figcaption><span>设备详情 / 本人借用</span><span class="id">D03</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d04-my-loans.png" alt="我的借用"><figcaption><span>我的借用</span><span class="id">D04</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d05-admin-devices.png" alt="管理员设备管理"><figcaption><span>设备管理 / 归档确认</span><span class="id">D05</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d06-device-form.png" alt="设备录入"><figcaption><span>新增设备 / 图片校验</span><span class="id">D06</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d07-admin-loans.png" alt="管理员借用管理"><figcaption><span>借用管理 / 异常账户</span><span class="id">D07</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d08-loan-actions.png" alt="借用操作弹窗"><figcaption><span>续借与强制操作</span><span class="id">D08</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d09-policy.png" alt="默认借期设置"><figcaption><span>默认借期设置</span><span class="id">D09</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d10-audit.png" alt="审计记录"><figcaption><span>审计查询</span><span class="id">D10</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d11-notifications.png" alt="通知处理"><figcaption><span>通知失败 / 人工复核</span><span class="id">D11</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d12-closed.png" alt="计划关闭页"><figcaption><span>19:00 后计划关闭</span><span class="id">D12</span></figcaption></figure>
+      <figure><img src="screenshots/desktop/d13-feedback.png" alt="反馈与异常状态"><figcaption><span>反馈与异常状态</span><span class="id">D13</span></figcaption></figure>
+    </section>
+    <h2>移动端 · 360px 视口 / 全页截图</h2>
+    <section class="mobile-grid">
+      <figure><img src="screenshots/mobile/m01-auth.png" alt="移动端账户入口"><figcaption><span>登录</span><span class="id">M01</span></figcaption></figure>
+      <figure><img src="screenshots/mobile/m02-devices.png" alt="移动端设备列表"><figcaption><span>设备</span><span class="id">M02</span></figcaption></figure>
+      <figure><img src="screenshots/mobile/m03-device-detail.png" alt="移动端设备详情"><figcaption><span>详情</span><span class="id">M03</span></figcaption></figure>
+      <figure><img src="screenshots/mobile/m04-my-loans.png" alt="移动端我的借用"><figcaption><span>我的借用</span><span class="id">M04</span></figcaption></figure>
+      <figure><img src="screenshots/mobile/m05-admin-loans.png" alt="移动端借用管理"><figcaption><span>借用管理</span><span class="id">M05</span></figcaption></figure>
+      <figure><img src="screenshots/mobile/m06-device-form.png" alt="移动端设备录入"><figcaption><span>设备录入</span><span class="id">M06</span></figcaption></figure>
+      <figure><img src="screenshots/mobile/m07-closed.png" alt="移动端关闭页"><figcaption><span>关闭页</span><span class="id">M07</span></figcaption></figure>
+    </section>
+  </main>
+  <footer class="footer"><span>仅用于需求与界面评审，不代表系统已经开发。</span><span>Device Desk UI Preview</span></footer>
+</body>
+</html>
