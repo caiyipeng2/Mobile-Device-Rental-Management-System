@@ -119,6 +119,35 @@ public sealed class Loan
             returnReason);
     }
 
+    public Loan ExtendDueAt(DateTimeOffset newDueAtUtc)
+    {
+        if (!IsOpen)
+        {
+            throw new InvalidOperationException("A returned loan cannot be extended.");
+        }
+
+        var normalizedNewDueAt = DomainGuard.Utc(newDueAtUtc);
+        if (normalizedNewDueAt <= DueAtUtc)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(newDueAtUtc),
+                newDueAtUtc,
+                "An extension must move the due time later.");
+        }
+
+        return new Loan(
+            Id,
+            DeviceId,
+            BorrowerId,
+            BorrowedAtUtc,
+            normalizedNewDueAt,
+            PolicyVersionId,
+            null,
+            null,
+            null,
+            null);
+    }
+
     private void ValidateReturnTuple(
         DateTimeOffset? returnedAtUtc,
         Guid? returnedByUserId,

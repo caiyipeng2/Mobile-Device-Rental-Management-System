@@ -97,6 +97,32 @@ public sealed class LoanStatusPolicyTests
             Reason.From("again")));
     }
 
+    [Fact]
+    public void ExtendDueAt_RequiresAnOpenLoanAndAStrictlyLaterUtcDueTime()
+    {
+        var loan = OpenLoan();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => loan.ExtendDueAt(loan.DueAtUtc));
+        Assert.Throws<ArgumentOutOfRangeException>(() => loan.ExtendDueAt(loan.DueAtUtc.AddTicks(-1)));
+
+        var extended = loan.ExtendDueAt(new DateTimeOffset(
+            2026,
+            9,
+            1,
+            12,
+            0,
+            0,
+            TimeSpan.FromHours(8)));
+        Assert.Equal(DateTimeOffset.Parse("2026-09-01T04:00:00Z"), extended.DueAtUtc);
+
+        var returned = loan.Close(
+            loan.BorrowedAtUtc.AddMinutes(1),
+            loan.BorrowerId,
+            ReturnKind.Self,
+            null);
+        Assert.Throws<InvalidOperationException>(() => returned.ExtendDueAt(returned.DueAtUtc.AddHours(1)));
+    }
+
     private static Loan OpenLoan() => Loan.Open(
         Guid.NewGuid(),
         Guid.NewGuid(),

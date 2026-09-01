@@ -41,7 +41,8 @@ public sealed class NotificationEntityInvariantTests
             CreatedAt.AddHours(1));
 
         Assert.Equal(OutboxStatus.Pending, message.Status);
-        Assert.Equal("key-v1", message.Payload.KeyVersion);
+        var payload = Assert.IsType<EncryptedPayload>(message.Payload);
+        Assert.Equal("key-v1", payload.KeyVersion);
         Assert.Null(message.LeaseId);
         Assert.Null(message.LockedBy);
         Assert.Null(message.LockedUntilUtc);
@@ -199,6 +200,92 @@ public sealed class NotificationEntityInvariantTests
             availableAtUtc: CreatedAt.AddHours(1)));
     }
 
+    [Theory]
+    [InlineData(OutboxStatus.Processed)]
+    [InlineData(OutboxStatus.Cancelled)]
+    [InlineData(OutboxStatus.DeadLetter)]
+    [InlineData(OutboxStatus.ReviewRequired)]
+    [Trait("Requirement", "REQ-NOTIFY-005")]
+    public void OutboxMessage_PurgePayload_PreservesTerminalHistory(OutboxStatus status)
+    {
+        var terminalMessage = CreateTerminalOutbox(status);
+        var terminalAt = TerminalAt(terminalMessage);
+        var purgeAt = terminalAt.AddMinutes(1).ToOffset(TimeSpan.FromHours(8));
+
+        var purged = terminalMessage.PurgePayload(purgeAt);
+
+        Assert.NotNull(terminalMessage.Payload);
+        Assert.Null(terminalMessage.PayloadPurgedAtUtc);
+        Assert.Null(purged.Payload);
+        Assert.Equal(terminalAt.AddMinutes(1), purged.PayloadPurgedAtUtc);
+        Assert.Equal(TimeSpan.Zero, purged.PayloadPurgedAtUtc!.Value.Offset);
+        Assert.Equal(terminalMessage.Id, purged.Id);
+        Assert.Equal(terminalMessage.DeduplicationKey, purged.DeduplicationKey);
+        Assert.Equal(terminalMessage.Status, purged.Status);
+    }
+
+    [Theory]
+    [InlineData(OutboxStatus.Pending)]
+    [InlineData(OutboxStatus.Claimed)]
+    [InlineData(OutboxStatus.Sending)]
+    public void OutboxMessage_PurgePayload_RejectsNonterminalStates(OutboxStatus status)
+    {
+        var message = status switch
+        {
+            OutboxStatus.Pending => CreateOutbox(status, 0),
+            OutboxStatus.Claimed => CreateOutbox(status, 0, withLease: true),
+            OutboxStatus.Sending => CreateOutbox(
+                status,
+                1,
+                withLease: true,
+                sendingStartedAtUtc: CreatedAt.AddMinutes(1)),
+            _ => throw new ArgumentOutOfRangeException(nameof(status)),
+        };
+
+        Assert.Throws<InvalidOperationException>(() => message.PurgePayload(CreatedAt.AddHours(1)));
+    }
+
+    [Fact]
+    public void OutboxMessage_PurgePayload_RejectsEarlyAndRepeatedPurge()
+    {
+        var processed = CreateTerminalOutbox(OutboxStatus.Processed);
+        var terminalAt = TerminalAt(processed);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => processed.PurgePayload(terminalAt.AddTicks(-1)));
+
+        var purged = processed.PurgePayload(terminalAt);
+        Assert.Throws<InvalidOperationException>(() => purged.PurgePayload(terminalAt.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void OutboxMessage_Constructor_EnforcesPayloadAndPurgeTimestampExclusivity()
+    {
+        var terminalAt = CreatedAt.AddMinutes(2);
+
+        Assert.Throws<ArgumentException>(() => CreateOutbox(
+            OutboxStatus.Processed,
+            1,
+            withLease: true,
+            sendingStartedAtUtc: CreatedAt.AddMinutes(1),
+            processedAtUtc: terminalAt,
+            includePayload: false));
+        Assert.Throws<ArgumentException>(() => CreateOutbox(
+            OutboxStatus.Processed,
+            1,
+            withLease: true,
+            sendingStartedAtUtc: CreatedAt.AddMinutes(1),
+            processedAtUtc: terminalAt,
+            payloadPurgedAtUtc: terminalAt.AddMinutes(1)));
+        Assert.Throws<ArgumentException>(() => CreateOutbox(
+            OutboxStatus.Pending,
+            0,
+            includePayload: false));
+        Assert.Throws<ArgumentException>(() => CreateOutbox(
+            OutboxStatus.Pending,
+            0,
+            payloadPurgedAtUtc: CreatedAt.AddMinutes(1)));
+    }
+
     [Fact]
     [Trait("Requirement", "REQ-NOTIFY-005")]
     public void NotificationDelivery_UserRecipientIncludesDedupeChannelAndTemplate()
@@ -314,6 +401,32 @@ public sealed class NotificationEntityInvariantTests
 
     private static EncryptedRecipientAddress EncryptedAddress() => new("key-v1", [4, 5, 6]);
 
+    private static OutboxMessage CreateTerminalOutbox(OutboxStatus status) => status switch
+    {
+        OutboxStatus.Processed => CreateOutbox(
+            status,
+            1,
+            withLease: true,
+            sendingStartedAtUtc: CreatedAt.AddMinutes(1),
+            processedAtUtc: CreatedAt.AddMinutes(2)),
+        OutboxStatus.Cancelled => CreateOutbox(
+            status,
+            0,
+            canceledAtUtc: CreatedAt.AddMinutes(2)),
+        OutboxStatus.DeadLetter or OutboxStatus.ReviewRequired => CreateOutbox(
+            status,
+            1,
+            withLease: true,
+            sendingStartedAtUtc: CreatedAt.AddMinutes(1),
+            failedAtUtc: CreatedAt.AddMinutes(2),
+            lastError: "sanitized failure"),
+        _ => throw new ArgumentOutOfRangeException(nameof(status)),
+    };
+
+    private static DateTimeOffset TerminalAt(OutboxMessage message) =>
+        message.ProcessedAtUtc ?? message.CanceledAtUtc ?? message.FailedAtUtc ??
+        throw new InvalidOperationException("Expected a terminal message.");
+
     private static OutboxMessage CreateOutbox(
         OutboxStatus status,
         int attemptCount,
@@ -322,7 +435,9 @@ public sealed class NotificationEntityInvariantTests
         DateTimeOffset? processedAtUtc = null,
         DateTimeOffset? canceledAtUtc = null,
         DateTimeOffset? failedAtUtc = null,
-        string? lastError = null) =>
+        string? lastError = null,
+        bool includePayload = true,
+        DateTimeOffset? payloadPurgedAtUtc = null) =>
         ConstructOutbox(
             status,
             attemptCount,
@@ -333,7 +448,9 @@ public sealed class NotificationEntityInvariantTests
             processedAtUtc,
             canceledAtUtc,
             failedAtUtc,
-            lastError);
+            lastError,
+            payloadPurgedAtUtc: payloadPurgedAtUtc,
+            includePayload: includePayload);
 
     private static OutboxMessage ConstructOutbox(
         OutboxStatus status,
@@ -346,7 +463,9 @@ public sealed class NotificationEntityInvariantTests
         DateTimeOffset? canceledAtUtc,
         DateTimeOffset? failedAtUtc,
         string? lastError,
-        DateTimeOffset? availableAtUtc = null) =>
+        DateTimeOffset? availableAtUtc = null,
+        DateTimeOffset? payloadPurgedAtUtc = null,
+        bool includePayload = true) =>
         new(
             Guid.NewGuid(),
             $"dedupe-{status}",
@@ -354,7 +473,7 @@ public sealed class NotificationEntityInvariantTests
             "aggregate",
             "1",
             1,
-            Payload(),
+            includePayload ? Payload() : null,
             CreatedAt,
             availableAtUtc ?? CreatedAt,
             status,
@@ -366,7 +485,8 @@ public sealed class NotificationEntityInvariantTests
             processedAtUtc,
             canceledAtUtc,
             failedAtUtc,
-            lastError);
+            lastError,
+            payloadPurgedAtUtc);
 
     private static NotificationDelivery CreateDelivery(
         Guid? recipientUserId,

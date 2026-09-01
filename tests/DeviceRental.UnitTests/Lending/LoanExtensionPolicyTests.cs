@@ -65,7 +65,7 @@ public sealed class LoanExtensionPolicyTests
             now.AddHours(1),
             Guid.NewGuid());
 
-        var extension = _policy.Create(
+        var result = _policy.Create(
             Guid.NewGuid(),
             loan,
             Guid.NewGuid(),
@@ -73,8 +73,68 @@ public sealed class LoanExtensionPolicyTests
             Reason.From("approved extension"),
             now);
 
-        Assert.Equal(loan.DueAtUtc.AddHours(1), extension.NewDueAtUtc);
-        Assert.Equal(TimeSpan.Zero, extension.EffectiveAtUtc.Offset);
-        Assert.Equal("approved extension", extension.Reason.Value);
+        Assert.Equal(loan.DueAtUtc.AddHours(1), result.Extension.NewDueAtUtc);
+        Assert.Equal(result.Extension.NewDueAtUtc, result.UpdatedLoan.DueAtUtc);
+        Assert.Equal(TimeSpan.Zero, result.Extension.EffectiveAtUtc.Offset);
+        Assert.Equal("approved extension", result.Extension.Reason.Value);
+    }
+
+    [Fact]
+    public void Create_UsesTheUpdatedLoanForConsecutiveExtensionsAndStatus()
+    {
+        var now = DateTimeOffset.Parse("2026-09-01T10:00:00Z");
+        var original = Loan.Open(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            now.AddHours(-1),
+            now.AddHours(1),
+            Guid.NewGuid());
+
+        var first = _policy.Create(
+            Guid.NewGuid(),
+            original,
+            Guid.NewGuid(),
+            DurationMinutes.From(60),
+            Reason.From("first extension"),
+            now);
+        var second = _policy.Create(
+            Guid.NewGuid(),
+            first.UpdatedLoan,
+            Guid.NewGuid(),
+            DurationMinutes.From(60),
+            Reason.From("second extension"),
+            now.AddMinutes(30));
+
+        Assert.Equal(now.AddHours(2), first.UpdatedLoan.DueAtUtc);
+        Assert.Equal(first.UpdatedLoan.DueAtUtc, second.Extension.OldDueAtUtc);
+        Assert.Equal(now.AddHours(3), second.UpdatedLoan.DueAtUtc);
+        Assert.Equal(LoanStatus.Active, second.UpdatedLoan.GetStatus(now.AddHours(2).AddMinutes(30)));
+        Assert.Equal(LoanStatus.Overdue, second.UpdatedLoan.GetStatus(now.AddHours(3)));
+    }
+
+    [Fact]
+    public void LoanExtensionResult_RequiresBothUpdatedLoanAndHistory()
+    {
+        var now = DateTimeOffset.Parse("2026-09-01T10:00:00Z");
+        var loan = Loan.Open(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            now.AddHours(-1),
+            now.AddHours(1),
+            Guid.NewGuid());
+        var extension = new LoanExtension(
+            Guid.NewGuid(),
+            loan.Id,
+            Guid.NewGuid(),
+            loan.DueAtUtc,
+            loan.DueAtUtc.AddHours(1),
+            now,
+            DurationMinutes.From(60),
+            Reason.From("extension"));
+
+        Assert.Throws<ArgumentNullException>(() => new LoanExtensionResult(null!, extension));
+        Assert.Throws<ArgumentNullException>(() => new LoanExtensionResult(loan, null!));
     }
 }

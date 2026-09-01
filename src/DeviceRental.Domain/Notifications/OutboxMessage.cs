@@ -41,7 +41,7 @@ public sealed class OutboxMessage
         string aggregateType,
         string aggregateId,
         long aggregateVersion,
-        EncryptedPayload payload,
+        EncryptedPayload? payload,
         DateTimeOffset createdAtUtc,
         DateTimeOffset availableAtUtc,
         OutboxStatus status,
@@ -53,10 +53,9 @@ public sealed class OutboxMessage
         DateTimeOffset? processedAtUtc,
         DateTimeOffset? canceledAtUtc,
         DateTimeOffset? failedAtUtc,
-        string? lastError)
+        string? lastError,
+        DateTimeOffset? payloadPurgedAtUtc = null)
     {
-        ArgumentNullException.ThrowIfNull(payload);
-
         Id = DomainGuard.RequiredId(id, nameof(id));
         DeduplicationKey = DomainGuard.RequiredText(deduplicationKey, nameof(deduplicationKey));
         MessageType = DomainGuard.RequiredText(messageType, nameof(messageType));
@@ -87,12 +86,13 @@ public sealed class OutboxMessage
         ProcessedAtUtc = Normalize(processedAtUtc);
         CanceledAtUtc = Normalize(canceledAtUtc);
         FailedAtUtc = Normalize(failedAtUtc);
+        PayloadPurgedAtUtc = Normalize(payloadPurgedAtUtc);
         LastError = lastError is null ? null : DomainGuard.RequiredText(lastError, nameof(lastError));
-
-        ValidateStateTuple(attemptCount);
         AggregateVersion = aggregateVersion;
         Payload = payload;
         AttemptCount = attemptCount;
+
+        ValidateStateTuple(attemptCount);
     }
 
     public Guid Id { get; }
@@ -107,7 +107,7 @@ public sealed class OutboxMessage
 
     public long AggregateVersion { get; }
 
-    public EncryptedPayload Payload { get; }
+    public EncryptedPayload? Payload { get; }
 
     public DateTimeOffset CreatedAtUtc { get; }
 
@@ -130,6 +130,8 @@ public sealed class OutboxMessage
     public DateTimeOffset? CanceledAtUtc { get; }
 
     public DateTimeOffset? FailedAtUtc { get; }
+
+    public DateTimeOffset? PayloadPurgedAtUtc { get; }
 
     public string? LastError { get; }
 
@@ -164,6 +166,41 @@ public sealed class OutboxMessage
             null,
             null);
 
+    public OutboxMessage PurgePayload(DateTimeOffset purgedAtUtc)
+    {
+        if (!IsTerminal(Status))
+        {
+            throw new InvalidOperationException("Payload can be purged only after the message reaches a terminal state.");
+        }
+
+        if (Payload is null || PayloadPurgedAtUtc is not null)
+        {
+            throw new InvalidOperationException("Payload has already been purged.");
+        }
+
+        return new OutboxMessage(
+            Id,
+            DeduplicationKey,
+            MessageType,
+            AggregateType,
+            AggregateId,
+            AggregateVersion,
+            null,
+            CreatedAtUtc,
+            AvailableAtUtc,
+            Status,
+            AttemptCount,
+            LeaseId,
+            LockedBy,
+            LockedUntilUtc,
+            SendingStartedAtUtc,
+            ProcessedAtUtc,
+            CanceledAtUtc,
+            FailedAtUtc,
+            LastError,
+            purgedAtUtc);
+    }
+
     private static DateTimeOffset? Normalize(DateTimeOffset? value) =>
         value is null ? null : DomainGuard.Utc(value.Value);
 
@@ -192,6 +229,7 @@ public sealed class OutboxMessage
         EnsureNotBeforeCreation(ProcessedAtUtc, nameof(ProcessedAtUtc));
         EnsureNotBeforeCreation(CanceledAtUtc, nameof(CanceledAtUtc));
         EnsureNotBeforeCreation(FailedAtUtc, nameof(FailedAtUtc));
+        EnsureNotBeforeCreation(PayloadPurgedAtUtc, nameof(PayloadPurgedAtUtc));
         if (SendingStartedAtUtc is not null && SendingStartedAtUtc < AvailableAtUtc)
         {
             throw new ArgumentOutOfRangeException(
@@ -243,7 +281,43 @@ public sealed class OutboxMessage
         {
             throw new ArgumentOutOfRangeException(nameof(terminalAt), terminalAt, "Terminal time cannot precede sending.");
         }
+
+        ValidatePayloadRetention();
     }
+
+    private void ValidatePayloadRetention()
+    {
+        if (!IsTerminal(Status))
+        {
+            if (Payload is null || PayloadPurgedAtUtc is not null)
+            {
+                throw new ArgumentException("A nonterminal message must retain its encrypted payload without a purge time.");
+            }
+
+            return;
+        }
+
+        if ((Payload is null) == (PayloadPurgedAtUtc is null))
+        {
+            throw new ArgumentException("A terminal message must have exactly one of payload or payload-purge time.");
+        }
+
+        var terminalAt = ProcessedAtUtc ?? CanceledAtUtc ?? FailedAtUtc ??
+            throw new InvalidOperationException("A terminal message requires a terminal timestamp.");
+        if (PayloadPurgedAtUtc is not null && PayloadPurgedAtUtc < terminalAt)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(PayloadPurgedAtUtc),
+                PayloadPurgedAtUtc,
+                "Payload cannot be purged before the terminal transition.");
+        }
+    }
+
+    private static bool IsTerminal(OutboxStatus status) => status is
+        OutboxStatus.Processed or
+        OutboxStatus.Cancelled or
+        OutboxStatus.DeadLetter or
+        OutboxStatus.ReviewRequired;
 
     private void EnsureNotBeforeCreation(DateTimeOffset? value, string parameterName)
     {

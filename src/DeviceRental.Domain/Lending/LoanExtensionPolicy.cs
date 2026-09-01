@@ -2,6 +2,19 @@ using DeviceRental.Domain.Common;
 
 namespace DeviceRental.Domain.Lending;
 
+public sealed class LoanExtensionResult
+{
+    public LoanExtensionResult(Loan updatedLoan, LoanExtension extension)
+    {
+        UpdatedLoan = updatedLoan ?? throw new ArgumentNullException(nameof(updatedLoan));
+        Extension = extension ?? throw new ArgumentNullException(nameof(extension));
+    }
+
+    public Loan UpdatedLoan { get; }
+
+    public LoanExtension Extension { get; }
+}
+
 public sealed class LoanExtensionPolicy
 {
     public const int MinimumMinutes = 60;
@@ -32,7 +45,7 @@ public sealed class LoanExtensionPolicy
         return newDueAt;
     }
 
-    public LoanExtension Create(
+    public LoanExtensionResult Create(
         Guid extensionId,
         Loan loan,
         Guid actorUserId,
@@ -48,7 +61,7 @@ public sealed class LoanExtensionPolicy
 
         var normalizedEffectiveNow = DomainGuard.Utc(effectiveNow);
         var newDueAt = CalculateNewDueAt(loan.DueAtUtc, normalizedEffectiveNow, duration);
-        return new LoanExtension(
+        var extension = new LoanExtension(
             extensionId,
             loan.Id,
             actorUserId,
@@ -57,5 +70,6 @@ public sealed class LoanExtensionPolicy
             normalizedEffectiveNow,
             duration,
             reason);
+        return new LoanExtensionResult(loan.ExtendDueAt(newDueAt), extension);
     }
 }
