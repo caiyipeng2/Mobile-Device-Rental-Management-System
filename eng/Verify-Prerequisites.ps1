@@ -18,7 +18,9 @@ function Test-Postgres18 {
 
     $psql = Get-Command psql -ErrorAction SilentlyContinue
     if ($null -eq $psql) {
-        return $false
+        # Hosted CI can validate the health-checked service through the Npgsql smoke test
+        # even when the runner image does not expose a PostgreSQL client on PATH.
+        return Test-DockerAvailable
     }
 
     $builder = [System.Data.Common.DbConnectionStringBuilder]::new()
@@ -88,7 +90,7 @@ if ($Mode -eq 'Database' -and -not $databaseAvailable) {
 }
 
 if ($databaseAvailable) {
-    Write-Host "PASS: .NET SDK $actualSdk; PostgreSQL 18 tests are available."
+    Write-Host "PASS: .NET SDK $actualSdk; PostgreSQL 18 tests are available (the test suite verifies the server major version through Npgsql)."
 }
 else {
     Write-Host "PASS: .NET SDK $actualSdk; database tests are unavailable and will not be run in LocalUnit mode."

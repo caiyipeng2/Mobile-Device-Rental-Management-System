@@ -44,7 +44,7 @@ public sealed class PostgreSqlProviderGuardTests
             .GetProperty("dependencies")
             .GetProperty("net10.0");
         Assert.True(
-            dependencies.TryGetProperty(NpgsqlProvider.ToLowerInvariant(), out var provider),
+            dependencies.TryGetProperty(NpgsqlProvider, out var provider),
             $"{NpgsqlProvider} is absent from the Infrastructure lock file.");
         Assert.Equal("Direct", provider.GetProperty("type").GetString());
     }

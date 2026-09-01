@@ -158,4 +158,5 @@ jobs:
           --project tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj
           --configuration Release
           --no-build
+          --minimum-expected-tests 1
           --results-directory artifacts/integration-results
