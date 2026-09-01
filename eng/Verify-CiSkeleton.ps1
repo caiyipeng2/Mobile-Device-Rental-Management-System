@@ -40,6 +40,10 @@ if ($integrationJob -notmatch [regex]::Escape('tests/DeviceRental.UnitTests/Devi
     Add-Failure 'The integration job must explicitly execute the PostgreSQL provider guard tests.'
 }
 
+if ($integrationJob -notmatch 'DEVICERENTAL_TEST_POSTGRES_CONTAINER_ID:\s*\$\{\{\s*job\.services\.postgres\.id\s*\}\}') {
+    Add-Failure 'The database prerequisite step must receive the PostgreSQL service container ID.'
+}
+
 if ($workflow -notmatch '(?ms)^permissions:\s*\r?\n\s+contents:\s*read\s*$') {
     Add-Failure 'Workflow must declare top-level permissions: contents: read.'
 }

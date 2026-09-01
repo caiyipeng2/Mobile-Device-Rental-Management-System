@@ -79,8 +79,28 @@ function Test-DockerAvailable {
     return $LASTEXITCODE -eq 0
 }
 
+function Test-PostgresServiceContainer {
+    $containerId = $env:DEVICERENTAL_TEST_POSTGRES_CONTAINER_ID
+    if ([string]::IsNullOrWhiteSpace($containerId)) {
+        return $false
+    }
+
+    $docker = Get-Command docker -ErrorAction SilentlyContinue
+    if ($null -eq $docker) {
+        return $false
+    }
+
+    $health = (& $docker.Source inspect `
+        --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' `
+        $containerId 2>$null).Trim()
+    return $LASTEXITCODE -eq 0 -and $health -eq 'healthy'
+}
+
 $databaseAvailable = if ([string]::IsNullOrWhiteSpace($env:DEVICERENTAL_TEST_POSTGRES_ADMIN)) {
     Test-DockerAvailable
+}
+elseif (Test-PostgresServiceContainer) {
+    $true
 }
 else {
     Test-Postgres18
