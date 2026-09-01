@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DeviceRental.AdminCli/DeviceRental.AdminCli.csproj" />
+    <Project Path="src/DeviceRental.Application/DeviceRental.Application.csproj" />
+    <Project Path="src/DeviceRental.Domain/DeviceRental.Domain.csproj" />
+    <Project Path="src/DeviceRental.Infrastructure/DeviceRental.Infrastructure.csproj" />
+    <Project Path="src/DeviceRental.Web/DeviceRental.Web.csproj" />
+    <Project Path="src/DeviceRental.Worker/DeviceRental.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DeviceRental.E2ETests/DeviceRental.E2ETests.csproj" />
+    <Project Path="tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj" />
+    <Project Path="tests/DeviceRental.Testing/DeviceRental.Testing.csproj" />
+    <Project Path="tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj" />
+    <Project Path="tests/DeviceRental.WebTests/DeviceRental.WebTests.csproj" />
+  </Folder>
+</Solution>

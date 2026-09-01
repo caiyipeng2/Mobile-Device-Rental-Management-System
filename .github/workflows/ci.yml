@@ -1,0 +1,143 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - codex/mobile-device-rental-system
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  build-unit:
+    name: Build and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          dotnet-version: 10.0.400
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24.7.0
+          cache: npm
+
+      - name: Verify local prerequisites
+        shell: pwsh
+        run: pwsh eng/Verify-Prerequisites.ps1 -Mode LocalUnit
+
+      - name: Verify CI pinning and jobs
+        shell: pwsh
+        run: pwsh eng/Verify-CiSkeleton.ps1
+
+      - name: Restore .NET dependencies
+        shell: pwsh
+        run: pwsh eng/dotnet.ps1 restore --locked-mode
+
+      - name: Restore frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Build solution
+        shell: pwsh
+        run: pwsh eng/dotnet.ps1 build --configuration Release --no-restore
+
+      - name: Run architecture tests with Microsoft Testing Platform
+        shell: pwsh
+        run: >-
+          pwsh eng/dotnet.ps1 test
+          --project tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj
+          --configuration Release
+          --no-build
+          --minimum-expected-tests 5
+          --results-directory artifacts/test-results
+
+      - name: Emit TRX and XPlat coverage through VSTest
+        shell: pwsh
+        run: |
+          $arguments = @(
+            'vstest',
+            'tests/DeviceRental.UnitTests/bin/Release/net10.0/DeviceRental.UnitTests.dll',
+            '--TestCaseFilter:FullyQualifiedName~Architecture',
+            '--Logger:trx;LogFileName=unit-tests.trx',
+            '--ResultsDirectory:artifacts/test-results',
+            '--Collect:XPlat Code Coverage'
+          )
+          & ./eng/dotnet.ps1 @arguments
+          exit $LASTEXITCODE
+
+      - name: Upload unit-test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unit-test-evidence
+          path: artifacts/test-results
+          if-no-files-found: error
+          retention-days: 14
+
+  integration:
+    name: PostgreSQL 18 integration skeleton
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      DEVICERENTAL_TEST_POSTGRES_ADMIN: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=device-rental-test-only
+    services:
+      postgres:
+        image: postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: device-rental-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          dotnet-version: 10.0.400
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      - name: Verify PostgreSQL test prerequisites
+        shell: pwsh
+        run: pwsh eng/Verify-Prerequisites.ps1 -Mode Database
+
+      - name: Restore locked dependencies
+        shell: pwsh
+        run: pwsh eng/dotnet.ps1 restore tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj --locked-mode
+
+      - name: Build integration test assembly
+        shell: pwsh
+        run: pwsh eng/dotnet.ps1 build tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj --configuration Release --no-restore
+
+      - name: Run integration skeleton
+        shell: pwsh
+        run: >-
+          pwsh eng/dotnet.ps1 test
+          --project tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj
+          --configuration Release
+          --no-build
+          --results-directory artifacts/integration-results

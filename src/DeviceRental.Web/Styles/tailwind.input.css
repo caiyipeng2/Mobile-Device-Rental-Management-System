@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+@source "../Pages/**/*.cshtml";
+@source "../Presentation/**/*.cs";
+@source "../TagHelpers/**/*.cs";
+@source "../ViewComponents/**/*.cshtml";

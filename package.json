@@ -1,0 +1,27 @@
+{
+  "name": "mobile-device-rental-management-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets:vendor": "node eng/vendor-assets.mjs",
+    "css:build": "tailwindcss -i src/DeviceRental.Web/Styles/tailwind.input.css -o src/DeviceRental.Web/wwwroot/css/app.css --minify",
+    "build": "npm run assets:vendor && npm run css:build"
+  },
+  "dependencies": {
+    "htmx.org": "2.0.10",
+    "lucide": "1.37.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@tailwindcss/cli": "4.3.3",
+    "tailwindcss": "4.3.3"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "allowScripts": {
+    "@parcel/watcher@2.5.1": true
+  }
+}

@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DeviceRental.Application\DeviceRental.Application.csproj" />
+    <ProjectReference Include="..\..\src\DeviceRental.Infrastructure\DeviceRental.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
