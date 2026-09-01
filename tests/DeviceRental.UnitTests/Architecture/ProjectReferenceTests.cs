@@ -11,6 +11,12 @@ public sealed class ProjectReferenceTests
     [Fact]
     public void Projects_FollowTheApprovedReferenceGraph()
     {
+        var normalized = ProjectReferences.NormalizeProjectReference(
+            @"..\..\src/DeviceRental.Domain\DeviceRental.Domain.csproj");
+        Assert.DoesNotContain(
+            Path.DirectorySeparatorChar == '/' ? '\\' : '/',
+            normalized);
+
         var expected = new Dictionary<string, string[]>
         {
             ["DeviceRental.Domain"] = [],

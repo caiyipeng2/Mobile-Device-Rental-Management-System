@@ -16,7 +16,9 @@ internal static class ProjectReferences
             .Where(element => element.Name.LocalName == "ProjectReference")
             .Select(element => element.Attribute("Include")?.Value)
             .Where(include => !string.IsNullOrWhiteSpace(include))
-            .Select(include => Path.GetFullPath(include!, projectDirectory))
+            .Select(include => Path.GetFullPath(
+                NormalizeProjectReference(include!),
+                projectDirectory))
             .Select(path => Path.GetFileNameWithoutExtension(path)
                 ?? throw new InvalidOperationException($"Project reference has no file name: {path}"))
             .Order(StringComparer.Ordinal)
@@ -42,4 +44,9 @@ internal static class ProjectReferences
             _ => throw new InvalidOperationException($"Multiple projects found: {projectName}"),
         };
     }
+
+    internal static string NormalizeProjectReference(string include) =>
+        include
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
 }
