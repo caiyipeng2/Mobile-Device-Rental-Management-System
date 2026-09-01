@@ -1,6 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\DeviceRental.Application\DeviceRental.Application.csproj" />
     <ProjectReference Include="..\..\src\DeviceRental.Infrastructure\DeviceRental.Infrastructure.csproj" />
   </ItemGroup>

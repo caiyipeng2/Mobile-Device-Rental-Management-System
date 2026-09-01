@@ -1,21 +1,19 @@
+using DeviceRental.Testing;
 using Npgsql;
 using Xunit;
 
 namespace DeviceRental.IntegrationTests;
 
-public sealed class PostgreSqlVersionSmokeTests
+[Collection(DeviceRental.IntegrationTests.DatabaseCollection.Name)]
+public sealed class PostgreSqlVersionSmokeTests(PostgresTestEnvironment database)
 {
     [Fact]
+    [Trait("Category", "Database")]
+    [Trait("Requirement", "NFR-REL-001")]
     public async Task ConfiguredServer_IsPostgreSql18()
     {
-        var connectionString = Environment.GetEnvironmentVariable(
-            "DEVICERENTAL_TEST_POSTGRES_ADMIN");
-        Assert.False(
-            string.IsNullOrWhiteSpace(connectionString),
-            "DEVICERENTAL_TEST_POSTGRES_ADMIN is required for database integration tests.");
-
         var cancellationToken = TestContext.Current.CancellationToken;
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = database.CreateMigrationConnection();
         await connection.OpenAsync(cancellationToken);
 
         await using var command = new NpgsqlCommand("SHOW server_version_num;", connection);

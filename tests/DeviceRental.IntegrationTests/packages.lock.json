@@ -325,14 +325,6 @@
           "xunit.v3.runner.inproc.console": "[4.0.0]"
         }
       },
-      "xunit.v3.extensibility.core": {
-        "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "+tTe9VX2vwrUHGI48FE4ly956Ry084wPH4I/7g5D36AkAMGjQRZZDVz8eH2GwX/CLS9PDQRSca534WyrAYsyzw==",
-        "dependencies": {
-          "xunit.v3.common": "[4.0.0]"
-        }
-      },
       "xunit.v3.mtp-v2": {
         "type": "Transitive",
         "resolved": "4.0.0",
@@ -382,7 +374,10 @@
         "type": "Project",
         "dependencies": {
           "DeviceRental.Application": "[1.0.0, )",
-          "DeviceRental.Infrastructure": "[1.0.0, )"
+          "DeviceRental.Infrastructure": "[1.0.0, )",
+          "Npgsql": "[10.0.3, 10.0.3]",
+          "Testcontainers.PostgreSql": "[4.14.0, 4.14.0]",
+          "xunit.v3.extensibility.core": "[4.0.0, 4.0.0]"
         }
       },
       "Microsoft.EntityFrameworkCore": {
@@ -418,6 +413,15 @@
           "Microsoft.EntityFrameworkCore": "[10.0.4, 11.0.0)",
           "Microsoft.EntityFrameworkCore.Relational": "[10.0.4, 11.0.0)",
           "Npgsql": "10.0.3"
+        }
+      },
+      "xunit.v3.extensibility.core": {
+        "type": "CentralTransitive",
+        "requested": "[4.0.0, 4.0.0]",
+        "resolved": "4.0.0",
+        "contentHash": "+tTe9VX2vwrUHGI48FE4ly956Ry084wPH4I/7g5D36AkAMGjQRZZDVz8eH2GwX/CLS9PDQRSca534WyrAYsyzw==",
+        "dependencies": {
+          "xunit.v3.common": "[4.0.0]"
         }
       }
     }

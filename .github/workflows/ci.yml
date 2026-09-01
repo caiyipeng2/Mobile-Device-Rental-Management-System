@@ -84,7 +84,7 @@ jobs:
           retention-days: 14
 
   integration:
-    name: PostgreSQL 18 integration skeleton
+    name: PostgreSQL 18 database specifications
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -149,17 +149,19 @@ jobs:
           --report-xunit-trx-filename provider-guard.trx
           --output Detailed
 
-      - name: Run integration skeleton
+      - name: Run PostgreSQL database specifications
         shell: pwsh
         run: >-
           pwsh eng/dotnet.ps1 test
           --project tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj
           --configuration Release
           --no-build
-          --minimum-expected-tests 1
-          --results-directory artifacts/integration-results
+          --filter Category=Database
+          --minimum-expected-tests 16
+          --fail-skips on
+          --results-directory artifacts/integration-results/database
           --report-xunit-trx
-          --report-xunit-trx-filename postgres-smoke.trx
+          --report-xunit-trx-filename postgres-database.trx
           --output Detailed
 
       - name: Upload integration-test evidence
@@ -168,5 +170,5 @@ jobs:
         with:
           name: integration-test-evidence
           path: artifacts/integration-results
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
