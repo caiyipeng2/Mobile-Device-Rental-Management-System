@@ -13,6 +13,7 @@ public sealed class PostgreSqlProviderGuardTests
             "Microsoft.AspNetCore.Identity.EntityFrameworkCore",
             "Microsoft.EntityFrameworkCore",
             "Microsoft.EntityFrameworkCore.Design",
+            "Microsoft.EntityFrameworkCore.Relational",
             "Microsoft.EntityFrameworkCore.Tools",
             NpgsqlProvider,
         ],
