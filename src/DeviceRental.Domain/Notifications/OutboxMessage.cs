@@ -41,6 +41,7 @@ public sealed class OutboxMessage
         string aggregateType,
         string aggregateId,
         long aggregateVersion,
+        string correlationId,
         EncryptedPayload? payload,
         DateTimeOffset createdAtUtc,
         DateTimeOffset availableAtUtc,
@@ -61,6 +62,7 @@ public sealed class OutboxMessage
         MessageType = DomainGuard.RequiredText(messageType, nameof(messageType));
         AggregateType = DomainGuard.RequiredText(aggregateType, nameof(aggregateType));
         AggregateId = DomainGuard.RequiredText(aggregateId, nameof(aggregateId));
+        CorrelationId = DomainGuard.RequiredText(correlationId, nameof(correlationId));
         if (aggregateVersion <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(aggregateVersion), aggregateVersion, "Aggregate version must be positive.");
@@ -107,6 +109,8 @@ public sealed class OutboxMessage
 
     public long AggregateVersion { get; }
 
+    public string CorrelationId { get; }
+
     public EncryptedPayload? Payload { get; }
 
     public DateTimeOffset CreatedAtUtc { get; }
@@ -142,6 +146,7 @@ public sealed class OutboxMessage
         string aggregateType,
         string aggregateId,
         long aggregateVersion,
+        string correlationId,
         EncryptedPayload payload,
         DateTimeOffset createdAtUtc,
         DateTimeOffset availableAtUtc) =>
@@ -152,6 +157,7 @@ public sealed class OutboxMessage
             aggregateType,
             aggregateId,
             aggregateVersion,
+            correlationId,
             payload,
             createdAtUtc,
             availableAtUtc,
@@ -185,6 +191,7 @@ public sealed class OutboxMessage
             AggregateType,
             AggregateId,
             AggregateVersion,
+            CorrelationId,
             null,
             CreatedAtUtc,
             AvailableAtUtc,

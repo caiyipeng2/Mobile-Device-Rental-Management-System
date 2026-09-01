@@ -36,11 +36,13 @@ public sealed class NotificationEntityInvariantTests
             "Loan",
             Guid.NewGuid().ToString("D"),
             3,
+            "correlation-1",
             Payload(),
             CreatedAt,
             CreatedAt.AddHours(1));
 
         Assert.Equal(OutboxStatus.Pending, message.Status);
+        Assert.Equal("correlation-1", message.CorrelationId);
         var payload = Assert.IsType<EncryptedPayload>(message.Payload);
         Assert.Equal("key-v1", payload.KeyVersion);
         Assert.Null(message.LeaseId);
@@ -117,6 +119,18 @@ public sealed class NotificationEntityInvariantTests
             "aggregate",
             "1",
             1,
+            "correlation-1",
+            Payload(),
+            CreatedAt,
+            CreatedAt));
+        Assert.Throws<ArgumentException>(() => OutboxMessage.Pending(
+            Guid.NewGuid(),
+            "dedupe",
+            "type",
+            "aggregate",
+            "1",
+            1,
+            " ",
             Payload(),
             CreatedAt,
             CreatedAt));
@@ -473,6 +487,7 @@ public sealed class NotificationEntityInvariantTests
             "aggregate",
             "1",
             1,
+            "correlation-1",
             includePayload ? Payload() : null,
             CreatedAt,
             availableAtUtc ?? CreatedAt,
