@@ -19,10 +19,13 @@ internal static partial class CoverageContract
     {
         var specification = File.ReadAllText(
             Path.Combine(RepositoryPaths.Root, "docs", "requirements-specification.md"));
-        var approvedIds = RequirementIdRegex().Matches(specification)
-            .Select(match => match.Value)
-            .ToHashSet(StringComparer.Ordinal);
+        var approvedIds = ExtractAuthoritativeRequirementIds(specification);
         Assert.Equal(70, approvedIds.Count);
+
+        var uniqueApprovedIds = approvedIds
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(70, uniqueApprovedIds.Length);
 
         var rows = ReadCsv(
             Path.Combine(RepositoryPaths.Root, "docs", "traceability.csv"),
@@ -33,8 +36,15 @@ internal static partial class CoverageContract
         var registeredIds = rows
             .Select(row => row["RequirementId"])
             .ToHashSet(StringComparer.Ordinal);
-        Assert.Equal(approvedIds.Order(StringComparer.Ordinal), registeredIds.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            uniqueApprovedIds.Order(StringComparer.Ordinal),
+            registeredIds.Order(StringComparer.Ordinal));
     }
+
+    internal static IReadOnlyList<string> ExtractAuthoritativeRequirementIds(string specification) =>
+        RequirementDefinitionRegex().Matches(specification)
+            .Select(match => match.Groups["id"].Value)
+            .ToArray();
 
     public static void AssertMvpCaseCoverage()
     {
@@ -158,8 +168,8 @@ internal static partial class CoverageContract
         return records;
     }
 
-    [GeneratedRegex(@"\b(?:REQ|NFR)-[A-Z0-9]+-\d{3}\b", RegexOptions.CultureInvariant)]
-    private static partial Regex RequirementIdRegex();
+    [GeneratedRegex(@"(?m)^-\s+`(?<id>(?:REQ|NFR)-[A-Z0-9]+-\d{3})`\s+", RegexOptions.CultureInvariant)]
+    private static partial Regex RequirementDefinitionRegex();
 
     [GeneratedRegex(@"(?m)^\|\s*(?<id>[A-Z][A-Z0-9]+-\d{3})\s*\|\s*M\s*\|", RegexOptions.CultureInvariant)]
     private static partial Regex MvpTableRowRegex();

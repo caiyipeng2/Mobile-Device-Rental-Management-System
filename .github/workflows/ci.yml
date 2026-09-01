@@ -129,9 +129,27 @@ jobs:
         shell: pwsh
         run: pwsh eng/dotnet.ps1 restore tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj --locked-mode
 
+      - name: Restore PostgreSQL provider guard dependencies
+        shell: pwsh
+        run: pwsh eng/dotnet.ps1 restore tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj --locked-mode
+
       - name: Build integration test assembly
         shell: pwsh
         run: pwsh eng/dotnet.ps1 build tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj --configuration Release --no-restore
+
+      - name: Build PostgreSQL provider guard assembly
+        shell: pwsh
+        run: pwsh eng/dotnet.ps1 build tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj --configuration Release --no-restore
+
+      - name: Run PostgreSQL provider guard tests
+        shell: pwsh
+        run: >-
+          pwsh eng/dotnet.ps1 test
+          --project tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj
+          --configuration Release
+          --no-build
+          --minimum-expected-tests 9
+          --results-directory artifacts/integration-results/provider-guard
 
       - name: Run integration skeleton
         shell: pwsh

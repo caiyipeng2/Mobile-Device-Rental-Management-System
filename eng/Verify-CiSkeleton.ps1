@@ -32,6 +32,14 @@ foreach ($jobName in @('build-unit', 'integration')) {
     }
 }
 
+$integrationJob = [regex]::Match(
+    $workflow,
+    '(?ms)^  integration:\s*$.*?(?=^  [A-Za-z0-9_-]+:\s*$|\z)').Value
+if ($integrationJob -notmatch [regex]::Escape('tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj') -or
+    $integrationJob -notmatch 'PostgreSQL provider guard') {
+    Add-Failure 'The integration job must explicitly execute the PostgreSQL provider guard tests.'
+}
+
 if ($workflow -notmatch '(?ms)^permissions:\s*\r?\n\s+contents:\s*read\s*$') {
     Add-Failure 'Workflow must declare top-level permissions: contents: read.'
 }
@@ -54,19 +62,49 @@ if ($workflow -notmatch [regex]::Escape('--Collect:XPlat Code Coverage')) {
     Add-Failure 'The build-unit job must collect XPlat code coverage.'
 }
 
-$filesToScan = [System.Collections.Generic.List[string]]::new()
-if (Test-Path -LiteralPath (Join-Path $repositoryRoot '.github\workflows')) {
-    Get-ChildItem -LiteralPath (Join-Path $repositoryRoot '.github\workflows') -File |
-        Where-Object Extension -in @('.yml', '.yaml') |
-        ForEach-Object { $filesToScan.Add($_.FullName) }
+$excludedDirectoryNames = [System.Collections.Generic.HashSet[string]]::new(
+    [System.StringComparer]::OrdinalIgnoreCase)
+foreach ($directoryName in @(
+    '.git',
+    '.codegraph',
+    '.tools',
+    '.worktrees',
+    'node_modules',
+    'bin',
+    'obj'
+)) {
+    [void]$excludedDirectoryNames.Add($directoryName)
 }
 
-foreach ($folder in @('src', 'deploy')) {
-    $folderPath = Join-Path $repositoryRoot $folder
-    if (Test-Path -LiteralPath $folderPath) {
-        Get-ChildItem -LiteralPath $folderPath -Recurse -File |
-            Where-Object { $_.Name -eq 'Dockerfile' -or $_.Name -match '^compose.*\.ya?ml$' } |
-            ForEach-Object { $filesToScan.Add($_.FullName) }
+$filesToScan = [System.Collections.Generic.List[string]]::new()
+$pendingDirectories = [System.Collections.Generic.Stack[string]]::new()
+$pendingDirectories.Push($repositoryRoot)
+
+while ($pendingDirectories.Count -gt 0) {
+    $directory = $pendingDirectories.Pop()
+
+    foreach ($childDirectory in [System.IO.Directory]::EnumerateDirectories($directory)) {
+        $directoryName = [System.IO.Path]::GetFileName($childDirectory)
+        $attributes = [System.IO.File]::GetAttributes($childDirectory)
+        if (-not $excludedDirectoryNames.Contains($directoryName) -and
+            -not ($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+            $pendingDirectories.Push($childDirectory)
+        }
+    }
+
+    foreach ($file in [System.IO.Directory]::EnumerateFiles($directory)) {
+        $fileName = [System.IO.Path]::GetFileName($file)
+        $relativePath = [System.IO.Path]::GetRelativePath($repositoryRoot, $file).Replace('\', '/')
+        $isWorkflow = $relativePath.StartsWith(
+            '.github/workflows/',
+            [System.StringComparison]::OrdinalIgnoreCase) -and
+            [System.IO.Path]::GetExtension($fileName) -in @('.yml', '.yaml')
+        $isDockerfile = $fileName -match '^Dockerfile(?:\..+)?$'
+        $isComposeFile = $fileName -match '^(?:docker-)?compose(?:\..+)?\.ya?ml$'
+
+        if ($isWorkflow -or $isDockerfile -or $isComposeFile) {
+            $filesToScan.Add($file)
+        }
     }
 }
 
@@ -111,4 +149,4 @@ if ($failures.Count -gt 0) {
     throw "CI skeleton verification failed with $($failures.Count) error(s)."
 }
 
-Write-Host "PASS: CI skeleton uses read-only permissions, required jobs, SHA-pinned actions, and digest-pinned containers."
+Write-Host "PASS: CI skeleton uses required jobs, an integration provider guard, SHA-pinned actions, and recursively verified digest-pinned containers."
