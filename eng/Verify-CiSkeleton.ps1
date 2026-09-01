@@ -48,6 +48,10 @@ if ($workflow -notmatch '(?ms)^permissions:\s*\r?\n\s+contents:\s*read\s*$') {
     Add-Failure 'Workflow must declare top-level permissions: contents: read.'
 }
 
+if ($workflow -notmatch 'NUGET_PACKAGES:\s*\$\{\{\s*github\.workspace\s*\}\}/\.tools/nuget/packages') {
+    Add-Failure 'Workflow and eng/dotnet.ps1 must share the workspace-local NuGet package cache.'
+}
+
 foreach ($actionName in @('actions/checkout', 'actions/setup-dotnet', 'actions/upload-artifact')) {
     if ($workflow -notmatch "(?m)^\s*-?\s*uses:\s*$([regex]::Escape($actionName))@[0-9a-f]{40}(?:\s*#.*)?$") {
         Add-Failure "Workflow action is absent or not pinned to a 40-character SHA: $actionName"
