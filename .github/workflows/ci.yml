@@ -64,22 +64,14 @@ jobs:
           --project tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj
           --configuration Release
           --no-build
-          --minimum-expected-tests 5
+          --minimum-expected-tests 9
           --results-directory artifacts/test-results
-
-      - name: Emit TRX and XPlat coverage through VSTest
-        shell: pwsh
-        run: |
-          $arguments = @(
-            'vstest',
-            'tests/DeviceRental.UnitTests/bin/Release/net10.0/DeviceRental.UnitTests.dll',
-            '--TestCaseFilter:FullyQualifiedName~Architecture',
-            '--Logger:trx;LogFileName=unit-tests.trx',
-            '--ResultsDirectory:artifacts/test-results',
-            '--Collect:XPlat Code Coverage'
-          )
-          & ./eng/dotnet.ps1 @arguments
-          exit $LASTEXITCODE
+          --report-xunit-trx
+          --report-xunit-trx-filename unit-mtp.trx
+          --coverage
+          --coverage-output artifacts/test-results/coverage.cobertura.xml
+          --coverage-output-format cobertura
+          --output Detailed
 
       - name: Upload unit-test evidence
         if: always()
@@ -152,6 +144,9 @@ jobs:
           --no-build
           --minimum-expected-tests 9
           --results-directory artifacts/integration-results/provider-guard
+          --report-xunit-trx
+          --report-xunit-trx-filename provider-guard.trx
+          --output Detailed
 
       - name: Run integration skeleton
         shell: pwsh
@@ -162,3 +157,15 @@ jobs:
           --no-build
           --minimum-expected-tests 1
           --results-directory artifacts/integration-results
+          --report-xunit-trx
+          --report-xunit-trx-filename postgres-smoke.trx
+          --output Detailed
+
+      - name: Upload integration-test evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-test-evidence
+          path: artifacts/integration-results
+          if-no-files-found: warn
+          retention-days: 14

@@ -58,12 +58,13 @@ if ($workflow -notmatch '(?m)--health-cmd(?:=|\s+)["'']?pg_isready\b') {
     Add-Failure 'PostgreSQL service must define a pg_isready health check.'
 }
 
-if ($workflow -notmatch [regex]::Escape('--Logger:trx')) {
+if ($workflow -notmatch [regex]::Escape('--report-xunit-trx')) {
     Add-Failure 'The build-unit job must emit a TRX test report.'
 }
 
-if ($workflow -notmatch [regex]::Escape('--Collect:XPlat Code Coverage')) {
-    Add-Failure 'The build-unit job must collect XPlat code coverage.'
+if ($workflow -notmatch [regex]::Escape('--coverage') -or
+    $workflow -notmatch [regex]::Escape('--coverage-output-format cobertura')) {
+    Add-Failure 'The build-unit job must collect cross-platform Cobertura coverage through MTP.'
 }
 
 $excludedDirectoryNames = [System.Collections.Generic.HashSet[string]]::new(
