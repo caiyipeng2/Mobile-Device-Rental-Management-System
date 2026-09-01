@@ -32,12 +32,33 @@ foreach ($jobName in @('build-unit', 'integration')) {
     }
 }
 
+$buildUnitJob = [regex]::Match(
+    $workflow,
+    '(?ms)^  build-unit:\s*$.*?(?=^  [A-Za-z0-9_-]+:\s*$|\z)').Value
+if ($buildUnitJob -notmatch [regex]::Escape('tests/DeviceRental.WebTests/DeviceRental.WebTests.csproj') -or
+    $buildUnitJob -notmatch '(?s)DeviceRental\.WebTests\.csproj.*?--minimum-expected-tests\s+3' -or
+    $buildUnitJob -notmatch '(?s)DeviceRental\.WebTests\.csproj.*?--fail-skips\s+on' -or
+    $buildUnitJob -notmatch [regex]::Escape('artifacts/test-results/web-health')) {
+    Add-Failure 'The build-unit job must execute at least three fail-closed Web health tests and retain their TRX evidence.'
+}
+
+if ($buildUnitJob -notmatch '(?s)DeviceRental\.UnitTests\.csproj.*?--minimum-expected-tests\s+90') {
+    Add-Failure 'The build-unit job must require the current 90-test Unit suite baseline.'
+}
+
 $integrationJob = [regex]::Match(
     $workflow,
     '(?ms)^  integration:\s*$.*?(?=^  [A-Za-z0-9_-]+:\s*$|\z)').Value
 if ($integrationJob -notmatch [regex]::Escape('tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj') -or
-    $integrationJob -notmatch 'PostgreSQL provider guard') {
+    $integrationJob -notmatch 'PostgreSQL provider guard' -or
+    $integrationJob -notmatch [regex]::Escape('--filter-namespace DeviceRental.UnitTests.Architecture') -or
+    $integrationJob -notmatch '(?s)DeviceRental\.UnitTests\.Architecture.*?--minimum-expected-tests\s+9') {
     Add-Failure 'The integration job must explicitly execute the PostgreSQL provider guard tests.'
+}
+
+if ($integrationJob -notmatch [regex]::Escape('--filter Category=Database') -or
+    $integrationJob -notmatch '(?s)--filter\s+Category=Database.*?--minimum-expected-tests\s+26') {
+    Add-Failure 'The integration job must require all 26 current database and persistence contract cases.'
 }
 
 if ($integrationJob -notmatch 'DEVICERENTAL_TEST_POSTGRES_CONTAINER_ID:\s*\$\{\{\s*job\.services\.postgres\.id\s*\}\}') {

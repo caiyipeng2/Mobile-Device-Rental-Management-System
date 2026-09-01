@@ -673,6 +673,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         bool emailConfirmed = false,
         DateTimeOffset? emailVerifiedAt = null)
     {
+        var createdAt = emailVerifiedAt ?? DateTimeOffset.UtcNow;
         const string sql = """
             INSERT INTO device_rental.users
                 (id, user_name, normalized_user_name, email, normalized_email,
@@ -694,8 +695,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             new NpgsqlParameter("normalized_email", (object?)normalizedEmail ?? DBNull.Value),
             new NpgsqlParameter("email_confirmed", emailConfirmed),
             new NpgsqlParameter("email_verified_at", (object?)emailVerifiedAt ?? DBNull.Value),
-            new NpgsqlParameter("created_at", DateTimeOffset.UtcNow),
-            new NpgsqlParameter("updated_at", DateTimeOffset.UtcNow));
+            new NpgsqlParameter("created_at", createdAt),
+            new NpgsqlParameter("updated_at", createdAt));
     }
 
     private static Task InsertRoleAsync(

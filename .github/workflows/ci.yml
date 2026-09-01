@@ -58,20 +58,38 @@ jobs:
         shell: pwsh
         run: pwsh eng/dotnet.ps1 build --configuration Release --no-restore
 
-      - name: Run architecture tests with Microsoft Testing Platform
+      - name: Verify committed migration SQL
+        shell: pwsh
+        run: pwsh eng/Verify-MigrationArtifact.ps1
+
+      - name: Run full unit suite with Microsoft Testing Platform
         shell: pwsh
         run: >-
           pwsh eng/dotnet.ps1 test
           --project tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj
           --configuration Release
           --no-build
-          --minimum-expected-tests 9
+          --minimum-expected-tests 90
           --results-directory artifacts/test-results
           --report-xunit-trx
           --report-xunit-trx-filename unit-mtp.trx
           --coverage
           --coverage-output artifacts/test-results/coverage.cobertura.xml
           --coverage-output-format cobertura
+          --output Detailed
+
+      - name: Run Web health fail-closed tests with Microsoft Testing Platform
+        shell: pwsh
+        run: >-
+          pwsh eng/dotnet.ps1 test
+          --project tests/DeviceRental.WebTests/DeviceRental.WebTests.csproj
+          --configuration Release
+          --no-build
+          --minimum-expected-tests 3
+          --fail-skips on
+          --results-directory artifacts/test-results/web-health
+          --report-xunit-trx
+          --report-xunit-trx-filename web-health.trx
           --output Detailed
 
       - name: Upload unit-test evidence
@@ -143,6 +161,7 @@ jobs:
           --project tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj
           --configuration Release
           --no-build
+          --filter-namespace DeviceRental.UnitTests.Architecture
           --minimum-expected-tests 9
           --results-directory artifacts/integration-results/provider-guard
           --report-xunit-trx
@@ -157,7 +176,7 @@ jobs:
           --configuration Release
           --no-build
           --filter Category=Database
-          --minimum-expected-tests 16
+          --minimum-expected-tests 26
           --fail-skips on
           --results-directory artifacts/integration-results/database
           --report-xunit-trx
