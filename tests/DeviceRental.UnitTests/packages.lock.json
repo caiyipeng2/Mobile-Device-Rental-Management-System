@@ -153,14 +153,6 @@
           "xunit.v3.runner.inproc.console": "[4.0.0]"
         }
       },
-      "xunit.v3.extensibility.core": {
-        "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "+tTe9VX2vwrUHGI48FE4ly956Ry084wPH4I/7g5D36AkAMGjQRZZDVz8eH2GwX/CLS9PDQRSca534WyrAYsyzw==",
-        "dependencies": {
-          "xunit.v3.common": "[4.0.0]"
-        }
-      },
       "xunit.v3.mtp-v2": {
         "type": "Transitive",
         "resolved": "4.0.0",
@@ -198,6 +190,15 @@
       },
       "devicerental.domain": {
         "type": "Project"
+      },
+      "xunit.v3.extensibility.core": {
+        "type": "CentralTransitive",
+        "requested": "[4.0.0, 4.0.0]",
+        "resolved": "4.0.0",
+        "contentHash": "+tTe9VX2vwrUHGI48FE4ly956Ry084wPH4I/7g5D36AkAMGjQRZZDVz8eH2GwX/CLS9PDQRSca534WyrAYsyzw==",
+        "dependencies": {
+          "xunit.v3.common": "[4.0.0]"
+        }
       }
     }
   }
