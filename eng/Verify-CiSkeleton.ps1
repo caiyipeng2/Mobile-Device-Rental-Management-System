@@ -61,6 +61,11 @@ if ($integrationJob -notmatch [regex]::Escape('--filter Category=Database') -or
     Add-Failure 'The integration job must require all 26 current database and persistence contract cases.'
 }
 
+if ($integrationJob -notmatch 'Publish database test failures' -or
+    $integrationJob -notmatch 'Get-ChildItem.*integration-results/database.*\.trx') {
+    Add-Failure 'The integration job must publish a TRX failure summary when database specifications fail.'
+}
+
 if ($integrationJob -notmatch 'DEVICERENTAL_TEST_POSTGRES_CONTAINER_ID:\s*\$\{\{\s*job\.services\.postgres\.id\s*\}\}') {
     Add-Failure 'The database prerequisite step must receive the PostgreSQL service container ID.'
 }

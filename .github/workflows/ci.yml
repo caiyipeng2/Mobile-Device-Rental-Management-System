@@ -183,6 +183,27 @@ jobs:
           --report-xunit-trx-filename postgres-database.trx
           --output Detailed
 
+      - name: Publish database test failures
+        if: failure()
+        shell: pwsh
+        run: |
+          $reports = @(Get-ChildItem -LiteralPath artifacts/integration-results/database -Recurse -Filter '*.trx' -File -ErrorAction SilentlyContinue)
+          if ($reports.Count -eq 0) {
+              Write-Output '::error title=Database test diagnostics::No TRX report was produced.'
+              exit 0
+          }
+
+          foreach ($report in $reports) {
+              [xml]$document = Get-Content -LiteralPath $report.FullName -Raw
+              $failed = @($document.TestRun.Results.UnitTestResult | Where-Object {
+                  $_.outcome -notin @('Passed', 'NotExecuted')
+              })
+              foreach ($result in $failed) {
+                  # Publish only the test name/outcome; raw stack traces can contain paths or data.
+                  Write-Output "::error title=Database test failure::$($result.testName) - outcome: $($result.outcome)"
+              }
+          }
+
       - name: Upload integration-test evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
