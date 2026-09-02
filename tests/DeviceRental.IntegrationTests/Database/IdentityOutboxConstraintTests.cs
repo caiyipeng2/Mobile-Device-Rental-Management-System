@@ -19,11 +19,11 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         await using var connection = await OpenApplicationConnectionAsync(
             nameof(NormalizedEmail_IsRequiredAndUnique), cancellationToken);
 
-        var missingEmail = await Assert.ThrowsAsync<PostgresException>(() =>
+        var missingEmail = await CapturePostgresExceptionAsync(() =>
             InsertUserAsync(connection, Guid.NewGuid(), "missing@example.test", null, cancellationToken));
         AssertSqlState(PostgresErrorCodes.NotNullViolation, missingEmail.SqlState);
 
-        var mismatchedVerification = await Assert.ThrowsAsync<PostgresException>(() =>
+        var mismatchedVerification = await CapturePostgresExceptionAsync(() =>
             InsertUserAsync(
                 connection,
                 Guid.NewGuid(),
@@ -33,7 +33,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 emailConfirmed: true));
         AssertSqlState(PostgresErrorCodes.CheckViolation, mismatchedVerification.SqlState);
 
-        var timestampWithoutConfirmation = await Assert.ThrowsAsync<PostgresException>(() =>
+        var timestampWithoutConfirmation = await CapturePostgresExceptionAsync(() =>
             InsertUserAsync(
                 connection,
                 Guid.NewGuid(),
@@ -58,7 +58,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             "first@example.test",
             "DUPLICATE@EXAMPLE.TEST",
             cancellationToken);
-        var duplicateEmail = await Assert.ThrowsAsync<PostgresException>(() =>
+        var duplicateEmail = await CapturePostgresExceptionAsync(() =>
             InsertUserAsync(
                 connection,
                 Guid.NewGuid(),
@@ -902,5 +902,35 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 cancellationToken);
             throw;
         }
+    }
+
+    private static async Task<PostgresException> CapturePostgresExceptionAsync(
+        Func<Task> action,
+        [System.Runtime.CompilerServices.CallerMemberName] string? operation = null)
+    {
+        try
+        {
+            await action();
+        }
+        catch (PostgresException exception)
+        {
+            return exception;
+        }
+        catch (Exception exception)
+        {
+            var sqlState = exception is NpgsqlException npgsql && npgsql.InnerException is PostgresException postgres
+                ? postgres.SqlState
+                : "none";
+            var directory = Environment.GetEnvironmentVariable(
+                "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
+            Directory.CreateDirectory(directory);
+            await File.AppendAllTextAsync(
+                Path.Combine(directory, "exception-diagnostics.txt"),
+                $"{operation}|{exception.GetType().Name}|{sqlState}{Environment.NewLine}");
+            throw;
+        }
+
+        throw new InvalidOperationException(
+            $"Expected PostgreSQL exception was not raised in {operation}.");
     }
 }
