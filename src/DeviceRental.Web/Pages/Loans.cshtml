@@ -1,0 +1,66 @@
+@page "/Loans"
+@model LoansModel
+@{
+    ViewData["Title"] = Model.IsAdministrator ? "借用管理" : "我的借用";
+}
+
+<section class="page-heading" aria-labelledby="loan-page-title">
+    <div>
+        <p class="eyebrow">借用记录</p>
+        <h1 id="loan-page-title">@(Model.IsAdministrator ? "借用管理" : "我的借用")</h1>
+        <p class="page-description">@(Model.IsAdministrator ? "查看测试组全部借用记录，确认逾期设备和归还原因。" : "查看你当前借用的设备和历史归还记录。")</p>
+    </div>
+    <a class="button button-secondary" asp-page="/Index">返回设备台账</a>
+</section>
+
+<section class="metric-grid loan-metrics" aria-label="借用记录概览">
+    <div class="metric"><span class="metric-value">@Model.Loans.Count</span><span class="metric-label">记录总数</span></div>
+    <div class="metric metric-borrowed"><span class="metric-value">@Model.Loans.Count(loan => loan.IsOpen)</span><span class="metric-label">进行中</span></div>
+    <div class="metric metric-available"><span class="metric-value">@Model.Loans.Count(loan => !loan.IsOpen)</span><span class="metric-label">已归还</span></div>
+</section>
+
+<section class="device-panel loan-panel" aria-labelledby="loan-list-title">
+    <header class="panel-header">
+        <div>
+            <h2 id="loan-list-title">@(Model.IsAdministrator ? "全量借用记录" : "我的记录")</h2>
+            <p>到期只标记逾期，不会自动释放实体设备。</p>
+        </div>
+    </header>
+    <div class="device-table-wrap">
+        <table class="device-table loan-table">
+            <caption class="sr-only">设备借用历史</caption>
+            <thead>
+                <tr><th scope="col">设备</th><th scope="col">借用人</th><th scope="col">借用时间</th><th scope="col">到期时间</th><th scope="col">状态</th><th scope="col">归还说明</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var loan in Model.Loans)
+            {
+                var overdue = loan.IsOpen && loan.DueAtUtc is not null && loan.DueAtUtc <= DateTimeOffset.UtcNow;
+                <tr>
+                    <td><strong>@loan.ModelName</strong><small><code>@loan.AssetNumber</code></small></td>
+                    <td>@loan.BorrowerName</td>
+                    <td><time datetime="@loan.BorrowedAtUtc.ToString("O")">@loan.BorrowedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</time></td>
+                    <td>@(loan.DueAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                    <td><span class="status @(overdue ? "status-unavailable" : loan.IsOpen ? "status-borrowed" : "status-available")"><span aria-hidden="true"></span>@(overdue ? "已逾期" : loan.StatusLabel)</span></td>
+                    <td>@(loan.ReturnReason ?? (loan.IsOpen ? "尚未归还" : "本人归还"))</td>
+                </tr>
+            }
+            @if (Model.Loans.Count == 0)
+            {
+                <tr><td colspan="6" class="empty-state">暂无借用记录。</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="device-cards loan-cards" aria-label="移动端借用列表">
+    @foreach (var loan in Model.Loans)
+    {
+        var overdue = loan.IsOpen && loan.DueAtUtc is not null && loan.DueAtUtc <= DateTimeOffset.UtcNow;
+        <article class="device-card loan-card">
+            <div class="device-card-heading"><span><strong>@loan.ModelName</strong><small>@loan.AssetNumber · @loan.BorrowerName</small></span><span class="status @(overdue ? "status-unavailable" : loan.IsOpen ? "status-borrowed" : "status-available")"><span aria-hidden="true"></span>@(overdue ? "已逾期" : loan.StatusLabel)</span></div>
+            <p>借用：@loan.BorrowedAtUtc.ToLocalTime().ToString("MM-dd HH:mm") · 到期：@(loan.DueAtUtc?.ToLocalTime().ToString("MM-dd HH:mm") ?? "-")</p>
+            <small>@(loan.ReturnReason ?? (loan.IsOpen ? "尚未归还" : "本人归还"))</small>
+        </article>
+    }
+    </div>
+</section>

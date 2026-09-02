@@ -9,6 +9,8 @@ public interface IDeviceDeskService
 {
     DeviceDeskOverview GetOverview(DeviceDeskAvailability? availability, string? search = null);
 
+    IReadOnlyList<DeviceDeskLoan> GetLoans(DemoCurrentUser user);
+
     DeviceDeskOperationResult Borrow(string assetNumber, DemoCurrentUser user, DateTimeOffset nowUtc);
 
     DeviceDeskOperationResult Return(string assetNumber, DemoCurrentUser user, DateTimeOffset nowUtc);
@@ -29,6 +31,7 @@ public interface IDeviceDeskService
 public sealed class InMemoryDeviceDeskService : IDeviceDeskService
 {
     private readonly object _gate = new();
+    private readonly List<MutableLoan> _loans = [];
     private readonly List<MutableDevice> _devices =
     [
         new("NAT-021", "iPhone 16 Pro", "高端", DeviceDeskAvailability.Available, "#7b5db2"),
@@ -80,6 +83,12 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
             device.BorrowerName = user.DisplayName;
             device.DueAtUtc = nowUtc.AddDays(1);
             device.UnavailableReason = null;
+            _loans.Add(new MutableLoan(
+                device.AssetNumber,
+                device.ModelName,
+                user.DisplayName,
+                nowUtc,
+                device.DueAtUtc.Value));
             return DeviceDeskOperationResult.Success($"已借用 {device.ModelName}，请在 24 小时内归还或联系管理员续借。");
         }
     }
@@ -102,6 +111,7 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
             device.Availability = DeviceDeskAvailability.Available;
             device.BorrowerName = null;
             device.DueAtUtc = null;
+            CloseLoan(device, user.DisplayName, nowUtc, null);
             return DeviceDeskOperationResult.Success($"已归还 {device.ModelName}，设备现在可借用。");
         }
     }
@@ -134,7 +144,45 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
             device.Availability = DeviceDeskAvailability.Available;
             device.BorrowerName = null;
             device.DueAtUtc = null;
+            CloseLoan(device, user.DisplayName, nowUtc, normalizedReason);
             return DeviceDeskOperationResult.Success($"已强制归还 {device.ModelName}：{normalizedReason}");
+        }
+    }
+
+    public IReadOnlyList<DeviceDeskLoan> GetLoans(DemoCurrentUser user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        lock (_gate)
+        {
+            var snapshots = _loans
+                .Where(loan => user.IsAdministrator ||
+                    string.Equals(loan.BorrowerName, user.DisplayName, StringComparison.Ordinal))
+                .Select(loan => loan.ToSnapshot())
+                .ToList();
+
+            if (user.IsAdministrator)
+            {
+                foreach (var device in _devices.Where(device =>
+                    device.Availability == DeviceDeskAvailability.Borrowed &&
+                    _loans.All(loan => !string.Equals(
+                        loan.AssetNumber,
+                        device.AssetNumber,
+                        StringComparison.OrdinalIgnoreCase))))
+                {
+                    snapshots.Add(new DeviceDeskLoan(
+                        device.AssetNumber,
+                        device.ModelName,
+                        device.BorrowerName ?? "未知用户",
+                        device.DueAtUtc?.AddDays(-1) ?? DateTimeOffset.UtcNow,
+                        device.DueAtUtc,
+                        null,
+                        null));
+                }
+            }
+
+            return snapshots
+                .OrderByDescending(loan => loan.BorrowedAtUtc)
+                .ToArray();
         }
     }
 
@@ -181,6 +229,23 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
         }
     }
 
+    private void CloseLoan(
+        MutableDevice device,
+        string returnedBy,
+        DateTimeOffset returnedAtUtc,
+        string? reason)
+    {
+        var loan = _loans.LastOrDefault(item =>
+            string.Equals(item.AssetNumber, device.AssetNumber, StringComparison.OrdinalIgnoreCase) &&
+            item.ReturnedAtUtc is null);
+        if (loan is not null)
+        {
+            loan.ReturnedAtUtc = returnedAtUtc;
+            loan.ReturnedByName = returnedBy;
+            loan.ReturnReason = reason;
+        }
+    }
+
     private MutableDevice? Find(string assetNumber) =>
         _devices.FirstOrDefault(device => string.Equals(device.AssetNumber, assetNumber, StringComparison.OrdinalIgnoreCase));
 
@@ -220,6 +285,39 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
             DueAtUtc,
             UnavailableReason);
     }
+
+    private sealed class MutableLoan(
+        string assetNumber,
+        string modelName,
+        string borrowerName,
+        DateTimeOffset borrowedAtUtc,
+        DateTimeOffset dueAtUtc)
+    {
+        public string AssetNumber { get; } = assetNumber;
+
+        public string ModelName { get; } = modelName;
+
+        public string BorrowerName { get; } = borrowerName;
+
+        public DateTimeOffset BorrowedAtUtc { get; } = borrowedAtUtc;
+
+        public DateTimeOffset DueAtUtc { get; } = dueAtUtc;
+
+        public DateTimeOffset? ReturnedAtUtc { get; set; }
+
+        public string? ReturnedByName { get; set; }
+
+        public string? ReturnReason { get; set; }
+
+        public DeviceDeskLoan ToSnapshot() => new(
+            AssetNumber,
+            ModelName,
+            BorrowerName,
+            BorrowedAtUtc,
+            DueAtUtc,
+            ReturnedAtUtc,
+            ReturnReason);
+    }
 }
 
 public sealed class DemoCurrentUserContext(IConfiguration configuration)
@@ -242,6 +340,20 @@ public sealed record DemoCurrentUser(string DisplayName, bool IsAdministrator)
 }
 
 public sealed record DeviceDeskOverview(IReadOnlyList<DeviceDeskDevice> Devices, DeviceDeskSummary Summary);
+
+public sealed record DeviceDeskLoan(
+    string AssetNumber,
+    string ModelName,
+    string BorrowerName,
+    DateTimeOffset BorrowedAtUtc,
+    DateTimeOffset? DueAtUtc,
+    DateTimeOffset? ReturnedAtUtc,
+    string? ReturnReason)
+{
+    public bool IsOpen => ReturnedAtUtc is null;
+
+    public string StatusLabel => IsOpen ? "进行中" : "已归还";
+}
 
 public sealed record DeviceDeskSummary(int Total, int Available, int Borrowed, int Unavailable);
 

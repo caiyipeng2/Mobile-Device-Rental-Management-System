@@ -105,6 +105,11 @@ code { color: #3d4a5e; font-family: var(--desk-data); font-size: 12px; }
 .compact-form input { width: 100%; }
 
 .device-cards { display: none; }
+.loan-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.loan-panel { margin-top: 16px; }
+.loan-table td { vertical-align: top; }
+.empty-state { padding: 34px !important; text-align: center; color: var(--desk-muted); }
+.loan-cards { display: none; }
 
 .auth-page, .closed-page { max-width: 520px; margin: 30px auto; }
 .auth-card { background: #fff; border: 1px solid var(--desk-line); padding: 26px; }
@@ -146,6 +151,7 @@ code { color: #3d4a5e; font-family: var(--desk-data); font-size: 12px; }
   .role-badge { font-size: 10px; }
   .device-table-wrap { display: none; }
   .device-cards { display: grid; gap: 0; }
+  .loan-cards { display: grid; }
   .device-card { border-bottom: 1px solid var(--desk-line); border-left: 3px solid var(--tier-color); padding: 13px; }
   .device-card:last-child { border-bottom: 0; }
   .device-card-heading { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 9px; }
