@@ -677,6 +677,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 Path.Combine(diagnosticDirectory, "safe-diagnostics.txt"),
                 $"PrepareDatabaseAsync|{exception.GetType().Name}|{sqlState}{Environment.NewLine}",
                 cancellationToken);
+            WriteSafeDiagnostic($"SAFE-PREPARE|{exception.GetType().Name}|{sqlState}");
             throw;
         }
     }
