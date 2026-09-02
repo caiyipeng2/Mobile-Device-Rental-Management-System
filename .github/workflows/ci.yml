@@ -107,6 +107,7 @@ jobs:
     timeout-minutes: 20
     env:
       DEVICERENTAL_TEST_POSTGRES_ADMIN: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=device-rental-test-only
+      DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY: ${{ github.workspace }}/artifacts/integration-results/database
     services:
       postgres:
         image: postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
@@ -241,6 +242,15 @@ jobs:
               foreach ($assertion in Get-Content -LiteralPath $safeAssertionPath) {
                   if (-not [string]::IsNullOrWhiteSpace($assertion)) {
                       Write-Output "::error title=Database assertion classification::$assertion"
+                  }
+              }
+          }
+
+          $connectionDiagnosticPath = 'artifacts/integration-results/database/connection-diagnostics.txt'
+          if (Test-Path -LiteralPath $connectionDiagnosticPath -PathType Leaf) {
+              foreach ($line in Get-Content -LiteralPath $connectionDiagnosticPath) {
+                  if (-not [string]::IsNullOrWhiteSpace($line)) {
+                      Write-Output "::error title=Database connection classification::$line"
                   }
               }
           }

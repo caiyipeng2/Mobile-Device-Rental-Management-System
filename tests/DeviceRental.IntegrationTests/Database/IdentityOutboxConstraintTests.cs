@@ -16,8 +16,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(NormalizedEmail_IsRequiredAndUnique), cancellationToken);
 
         var missingEmail = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertUserAsync(connection, Guid.NewGuid(), "missing@example.test", null, cancellationToken));
@@ -75,8 +75,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(Roles_AreRestrictedToApprovedWhitelist), cancellationToken);
 
         await InsertRoleAsync(connection, "USER", cancellationToken);
         await InsertRoleAsync(connection, "TEST_ADMIN", cancellationToken);
@@ -92,8 +92,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(AuditFields_AreRequiredAndStoredAsJsonb), cancellationToken);
 
         const string columnSql = """
             SELECT column_name, udt_name, is_nullable
@@ -156,8 +156,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(InvalidAuditActorTuples_AreRejected), cancellationToken);
         var userId = Guid.NewGuid();
         await InsertUserAsync(
             connection,
@@ -264,8 +264,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(AuditRows_CannotBeUpdatedOrDeletedByApplicationRole), cancellationToken);
         var eventId = await InsertAuditAsync(connection, "DEVICE_CREATED", cancellationToken);
 
         var update = await Assert.ThrowsAsync<PostgresException>(() => ExecuteAsync(
@@ -290,8 +290,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(OutboxDedupeKey_IsRequiredAndUnique), cancellationToken);
 
         var missingKey = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertPendingOutboxAsync(connection, null, cancellationToken));
@@ -322,8 +322,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(InvalidOutboxStatus_IsRejected), cancellationToken);
 
         var invalidStatus = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertOutboxAsync(
@@ -344,8 +344,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(InvalidLeaseTuple_IsRejected), cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
         (Guid? LeaseId, string? LockedBy, DateTimeOffset? LockedUntil)[] invalidLeases =
@@ -385,8 +385,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(InvalidPayloadTuple_IsRejected), cancellationToken);
 
         (int? SchemaVersion, string? KeyVersion, byte[]? Ciphertext)[] invalidPayloads =
         [
@@ -421,8 +421,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(ProcessedState_RequiresCompleteTerminalAndPurgedPayloadTuples), cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
         var missingStateTimes = await Assert.ThrowsAsync<PostgresException>(() =>
@@ -500,8 +500,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(ApprovedOutboxStateTruthTable_AcceptsEveryState), cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
         await InsertPendingOutboxAsync(connection, "truth:pending", cancellationToken);
@@ -547,8 +547,8 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var connection = database.CreateApplicationConnection();
-        await connection.OpenAsync(cancellationToken);
+        await using var connection = await OpenApplicationConnectionAsync(
+            nameof(OutboxTimeAttemptAndErrorInvariants_AreEnforced), cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
         Func<Task>[] invalidRows =
@@ -632,10 +632,10 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await PrepareDatabaseAsync(cancellationToken);
-        await using var first = database.CreateApplicationConnection();
-        await using var second = database.CreateApplicationConnection();
-        await first.OpenAsync(cancellationToken);
-        await second.OpenAsync(cancellationToken);
+        await using var first = await OpenApplicationConnectionAsync(
+            nameof(ConcurrentOutboxInserts_AllowOnlyOneDedupeKey) + ":first", cancellationToken);
+        await using var second = await OpenApplicationConnectionAsync(
+            nameof(ConcurrentOutboxInserts_AllowOnlyOneDedupeKey) + ":second", cancellationToken);
         await using var firstTransaction = await first.BeginTransactionAsync(cancellationToken);
 
         await InsertPendingOutboxAsync(first, "loan:concurrent:borrowed", cancellationToken);
@@ -670,15 +670,11 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             var sqlState = exception is PostgresException postgres
                 ? postgres.SqlState
                 : "none";
-            var diagnosticPath = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                "artifacts",
-                "integration-results",
-                "database",
-                "safe-diagnostics.txt");
-            Directory.CreateDirectory(Path.GetDirectoryName(diagnosticPath)!);
+            var diagnosticDirectory = Environment.GetEnvironmentVariable(
+                "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
+            Directory.CreateDirectory(diagnosticDirectory);
             await File.AppendAllTextAsync(
-                diagnosticPath,
+                Path.Combine(diagnosticDirectory, "safe-diagnostics.txt"),
                 $"PrepareDatabaseAsync|{exception.GetType().Name}|{sqlState}{Environment.NewLine}",
                 cancellationToken);
             throw;
@@ -870,18 +866,41 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         if (!string.Equals(expected, actual, StringComparison.Ordinal))
         {
-            var path = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                "artifacts",
-                "integration-results",
-                "database",
-                "sqlstate-assertions.txt");
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var directory = Environment.GetEnvironmentVariable(
+                "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
+            Directory.CreateDirectory(directory);
             File.AppendAllText(
-                path,
+                Path.Combine(directory, "sqlstate-assertions.txt"),
                 $"expected={expected}|actual={actual}{Environment.NewLine}");
         }
 
         Assert.Equal(expected, actual);
+    }
+
+    private async Task<NpgsqlConnection> OpenApplicationConnectionAsync(
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        var connection = database.CreateApplicationConnection();
+        try
+        {
+            await connection.OpenAsync(cancellationToken);
+            return connection;
+        }
+        catch (Exception exception)
+        {
+            await connection.DisposeAsync();
+            var sqlState = exception is PostgresException postgres
+                ? postgres.SqlState
+                : "none";
+            var directory = Environment.GetEnvironmentVariable(
+                "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
+            Directory.CreateDirectory(directory);
+            await File.AppendAllTextAsync(
+                Path.Combine(directory, "connection-diagnostics.txt"),
+                $"{operation}|{exception.GetType().Name}|{sqlState}{Environment.NewLine}",
+                cancellationToken);
+            throw;
+        }
     }
 }
