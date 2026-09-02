@@ -7,11 +7,17 @@ namespace DeviceRental.Web.Demo;
 /// </summary>
 public interface IDeviceDeskService
 {
-    DeviceDeskOverview GetOverview(DeviceDeskAvailability? availability);
+    DeviceDeskOverview GetOverview(DeviceDeskAvailability? availability, string? search = null);
 
     DeviceDeskOperationResult Borrow(string assetNumber, DemoCurrentUser user, DateTimeOffset nowUtc);
 
     DeviceDeskOperationResult Return(string assetNumber, DemoCurrentUser user, DateTimeOffset nowUtc);
+
+    DeviceDeskOperationResult ForceReturn(
+        string assetNumber,
+        DemoCurrentUser user,
+        DateTimeOffset nowUtc,
+        string? reason);
 
     DeviceDeskOperationResult SetAvailability(
         string assetNumber,
@@ -32,12 +38,16 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
         new("LAB-019", "iPhone 13 mini", "中端", DeviceDeskAvailability.Available, "#2e7b78"),
     ];
 
-    public DeviceDeskOverview GetOverview(DeviceDeskAvailability? availability)
+    public DeviceDeskOverview GetOverview(DeviceDeskAvailability? availability, string? search = null)
     {
         lock (_gate)
         {
+            var normalizedSearch = search?.Trim();
             var devices = _devices
                 .Where(device => availability is null || device.Availability == availability)
+                .Where(device => string.IsNullOrWhiteSpace(normalizedSearch) ||
+                    device.ModelName.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ||
+                    device.AssetNumber.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase))
                 .Select(device => device.ToSnapshot())
                 .ToArray();
 
@@ -93,6 +103,38 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
             device.BorrowerName = null;
             device.DueAtUtc = null;
             return DeviceDeskOperationResult.Success($"已归还 {device.ModelName}，设备现在可借用。");
+        }
+    }
+
+    public DeviceDeskOperationResult ForceReturn(
+        string assetNumber,
+        DemoCurrentUser user,
+        DateTimeOffset nowUtc,
+        string? reason)
+    {
+        if (!user.IsAdministrator)
+        {
+            return DeviceDeskOperationResult.Failure("只有测试组管理员可以强制归还设备。");
+        }
+
+        var normalizedReason = reason?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedReason))
+        {
+            return DeviceDeskOperationResult.Failure("强制归还需要填写原因。");
+        }
+
+        lock (_gate)
+        {
+            var device = Find(assetNumber);
+            if (device is null || device.Availability != DeviceDeskAvailability.Borrowed)
+            {
+                return DeviceDeskOperationResult.Failure("该设备没有可归还的借用记录。");
+            }
+
+            device.Availability = DeviceDeskAvailability.Available;
+            device.BorrowerName = null;
+            device.DueAtUtc = null;
+            return DeviceDeskOperationResult.Success($"已强制归还 {device.ModelName}：{normalizedReason}");
         }
     }
 

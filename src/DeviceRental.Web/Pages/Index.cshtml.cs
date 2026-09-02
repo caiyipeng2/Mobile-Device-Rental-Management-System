@@ -11,6 +11,9 @@ public sealed class IndexModel(
     [BindProperty(SupportsGet = true)]
     public string? Status { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
+
     public DeviceDeskOverview Overview { get; private set; } = new([], new DeviceDeskSummary(0, 0, 0, 0));
 
     public DemoCurrentUser CurrentUser { get; private set; } = new("", false);
@@ -24,13 +27,19 @@ public sealed class IndexModel(
     public IActionResult OnPostBorrow(string deviceId)
     {
         StoreFeedback(deviceDesk.Borrow(deviceId, GetCurrentUser(), DateTimeOffset.UtcNow));
-        return RedirectToPage(new { Status });
+        return RedirectToPage(new { Status, Search });
     }
 
     public IActionResult OnPostReturn(string deviceId)
     {
         StoreFeedback(deviceDesk.Return(deviceId, GetCurrentUser(), DateTimeOffset.UtcNow));
-        return RedirectToPage(new { Status });
+        return RedirectToPage(new { Status, Search });
+    }
+
+    public IActionResult OnPostForceReturn(string deviceId, string? reason)
+    {
+        StoreFeedback(deviceDesk.ForceReturn(deviceId, GetCurrentUser(), DateTimeOffset.UtcNow, reason));
+        return RedirectToPage(new { Status, Search });
     }
 
     public IActionResult OnPostSetAvailability(string deviceId, string availability, string? reason)
@@ -40,21 +49,22 @@ public sealed class IndexModel(
             : DeviceDeskAvailability.Unavailable;
 
         StoreFeedback(deviceDesk.SetAvailability(deviceId, parsedAvailability, reason, GetCurrentUser()));
-        return RedirectToPage(new { Status });
+        return RedirectToPage(new { Status, Search });
     }
 
-    public string FilterUrl(DeviceDeskAvailability? availability) => availability?.ToString() switch
-    {
-        null => Url.Page("/Index") ?? "/",
-        var value => Url.Page("/Index", new { status = value }) ?? "/",
-    };
+    public string FilterUrl(DeviceDeskAvailability? availability) =>
+        Url.Page("/Index", new
+        {
+            status = availability?.ToString(),
+            search = Search,
+        }) ?? "/";
 
     public bool IsSelected(DeviceDeskAvailability? availability) => ParseAvailability() == availability;
 
     private void Load()
     {
         CurrentUser = GetCurrentUser();
-        Overview = deviceDesk.GetOverview(ParseAvailability());
+        Overview = deviceDesk.GetOverview(ParseAvailability(), Search);
     }
 
     private DemoCurrentUser GetCurrentUser() => currentUserContext.GetCurrentUser();

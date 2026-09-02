@@ -45,6 +45,8 @@
 </section>
 
 <form class="filter-bar" method="get" aria-label="筛选设备">
+    <label for="search">搜索</label>
+    <input id="search" name="search" value="@Model.Search" placeholder="型号或资产标签" />
     <label for="status">设备状态</label>
     <select id="status" name="status">
         <option value="" selected="@Model.IsSelected(null)">全部状态</option>
@@ -102,9 +104,20 @@
                         {
                             <form method="post" asp-page-handler="Borrow"><input type="hidden" name="deviceId" value="@device.AssetNumber" /><button class="button button-primary" type="submit">借用</button></form>
                         }
-                        else if (isMine || Model.CurrentUser.IsAdministrator && device.Availability == DeviceDeskAvailability.Borrowed)
+                        else if (isMine)
                         {
                             <form method="post" asp-page-handler="Return"><input type="hidden" name="deviceId" value="@device.AssetNumber" /><button class="button button-secondary" type="submit">归还</button></form>
+                        }
+                        else if (Model.CurrentUser.IsAdministrator && device.Availability == DeviceDeskAvailability.Borrowed)
+                        {
+                            <details class="admin-action">
+                                <summary>强制归还</summary>
+                                <form method="post" asp-page-handler="ForceReturn" class="compact-form">
+                                    <input type="hidden" name="deviceId" value="@device.AssetNumber" />
+                                    <label>归还原因<input name="reason" required maxlength="120" placeholder="例如：设备送修" /></label>
+                                    <button class="button button-danger" type="submit">确认归还</button>
+                                </form>
+                            </details>
                         }
                         else
                         {
@@ -152,9 +165,20 @@
             {
                 <form method="post" asp-page-handler="Borrow"><input type="hidden" name="deviceId" value="@device.AssetNumber" /><button class="button button-primary" type="submit">借用</button></form>
             }
-            else if (isMine || Model.CurrentUser.IsAdministrator && device.Availability == DeviceDeskAvailability.Borrowed)
+            else if (isMine)
             {
                 <form method="post" asp-page-handler="Return"><input type="hidden" name="deviceId" value="@device.AssetNumber" /><button class="button button-secondary" type="submit">归还</button></form>
+            }
+            else if (Model.CurrentUser.IsAdministrator && device.Availability == DeviceDeskAvailability.Borrowed)
+            {
+                <details class="admin-action">
+                    <summary>强制归还</summary>
+                    <form method="post" asp-page-handler="ForceReturn" class="compact-form">
+                        <input type="hidden" name="deviceId" value="@device.AssetNumber" />
+                        <label>归还原因<input name="reason" required maxlength="120" placeholder="例如：设备送修" /></label>
+                        <button class="button button-danger" type="submit">确认归还</button>
+                    </form>
+                </details>
             }
         </article>
     }
