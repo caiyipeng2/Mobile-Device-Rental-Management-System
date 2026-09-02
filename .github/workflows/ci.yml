@@ -170,18 +170,30 @@ jobs:
 
       - name: Run PostgreSQL database specifications
         shell: pwsh
-        run: >-
-          pwsh eng/dotnet.ps1 test
-          --project tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj
-          --configuration Release
-          --no-build
-          --filter Category=Database
-          --minimum-expected-tests 26
-          --fail-skips on
-          --results-directory artifacts/integration-results/database
-          --report-xunit-trx
-          --report-xunit-trx-filename postgres-database.trx
-          --output Detailed
+        run: |
+          $safeSqlStatePath = 'artifacts/integration-results/database/sqlstate-diagnostics.txt'
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $safeSqlStatePath) | Out-Null
+          $testOutput = @(
+              & pwsh eng/dotnet.ps1 test `
+                  --project tests/DeviceRental.IntegrationTests/DeviceRental.IntegrationTests.csproj `
+                  --configuration Release `
+                  --no-build `
+                  --filter Category=Database `
+                  --minimum-expected-tests 26 `
+                  --fail-skips on `
+                  --results-directory artifacts/integration-results/database `
+                  --report-xunit-trx `
+                  --report-xunit-trx-filename postgres-database.trx `
+                  --output Detailed 2>&1
+          )
+          $exitCode = $LASTEXITCODE
+          $sqlStates = [regex]::Matches(
+              ($testOutput -join "`n"),
+              '\b(?:0[0-9A-Z]{4}|1[0-9A-Z]{4}|2[0-9A-Z]{4}|25[0-9A-Z]{3}|28[0-9A-Z]{3}|22[0-9A-Z]{3}|23[0-9A-Z]{3}|42[0-9A-Z]{3}|XX[0-9A-Z]{3})\b') |
+              ForEach-Object Value |
+              Sort-Object -Unique
+          $sqlStates | Set-Content -LiteralPath $safeSqlStatePath
+          exit $exitCode
 
       - name: Publish database test failures
         if: failure()
@@ -212,6 +224,15 @@ jobs:
           if (Test-Path -LiteralPath $safeDiagnosticPath -PathType Leaf) {
               foreach ($line in Get-Content -LiteralPath $safeDiagnosticPath) {
                   Write-Output "::error title=Database setup classification::$line"
+              }
+          }
+
+          $safeSqlStatePath = 'artifacts/integration-results/database/sqlstate-diagnostics.txt'
+          if (Test-Path -LiteralPath $safeSqlStatePath -PathType Leaf) {
+              foreach ($sqlState in Get-Content -LiteralPath $safeSqlStatePath) {
+                  if (-not [string]::IsNullOrWhiteSpace($sqlState)) {
+                      Write-Output "::error title=Database SQLSTATE observed::SQLSTATE $sqlState"
+                  }
               }
           }
 

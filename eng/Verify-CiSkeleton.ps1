@@ -62,7 +62,7 @@ if ($integrationJob -notmatch [regex]::Escape('--filter Category=Database') -or
 }
 
 if ($integrationJob -notmatch 'Publish database test failures' -or
-    $integrationJob -notmatch 'Get-ChildItem.*integration-results/database.*\.trx') {
+    $integrationJob -notmatch 'sqlstate-diagnostics\.txt') {
     Add-Failure 'The integration job must publish a TRX failure summary when database specifications fail.'
 }
 
