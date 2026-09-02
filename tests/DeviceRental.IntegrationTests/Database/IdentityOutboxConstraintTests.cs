@@ -930,6 +930,12 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             throw;
         }
 
+        var directory = Environment.GetEnvironmentVariable(
+            "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
+        Directory.CreateDirectory(directory);
+        await File.AppendAllTextAsync(
+            Path.Combine(directory, "exception-diagnostics.txt"),
+            $"{operation}|ExpectedExceptionNotRaised|none{Environment.NewLine}");
         throw new InvalidOperationException(
             $"Expected PostgreSQL exception was not raised in {operation}.");
     }
