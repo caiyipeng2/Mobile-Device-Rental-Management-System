@@ -204,6 +204,11 @@ jobs:
               if ($line -match '(?i)postgres|npgsql|sqlstate') { [void]$categories.Add('PROVIDER') }
           }
           $categories | Set-Content -LiteralPath 'artifacts/integration-results/database/safe-output-categories.txt'
+          foreach ($line in $testOutput) {
+              if ($line -match '^SAFE-DIAGNOSTIC\|([A-Za-z0-9_.:-]+)\|([A-Za-z0-9_.:-]+)\|([A-Za-z0-9_.:-]+)$') {
+                  Write-Output "::error title=Database safe diagnostic::$($Matches[1])|$($Matches[2])|$($Matches[3])"
+              }
+          }
           exit $exitCode
 
       - name: Publish database test failures
