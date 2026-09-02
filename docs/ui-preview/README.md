@@ -1,16 +1,18 @@
 # 测试设备台账界面预览
 
-> 状态：v1.0 已批准界面基线。预览使用合成数据，不包含真实员工、邮箱或资产信息，也不代表系统已经完成开发。
+> 状态：v1.0 已批准界面基线。预览使用合成数据，不包含真实员工、邮箱或资产信息；当前 Razor MVP 已按该基线实现设备操作台。
 
 ## 快速查看
 
 - [界面预览总览图](overview.png)
 - [可浏览静态原型](index.html)
 - [总览页面](overview.html)
+- [Razor MVP 桌面实拍](device-desk-desktop.png)
+- [Razor MVP 移动实拍](device-desk-mobile.png)
 
 本地浏览地址：`http://127.0.0.1:4173/docs/ui-preview/`
 
-静态原型通过查询参数切换页面，例如：
+静态原型通过查询参数切换页面，例如：Razor MVP 可通过仓库 README 中的本地启动命令运行：
 
 - 普通用户设备列表：`?screen=devices&role=user`
 - 管理员设备管理：`?screen=admin-devices&role=admin`
