@@ -228,7 +228,11 @@ jobs:
                   $sqlState = [regex]::Match($serializedResult, '\b(?:22|23|25|28|42)[0-9A-Z]{3}\b').Value
                   $detail = if ([string]::IsNullOrWhiteSpace($sqlState)) { 'SQLSTATE unavailable' } else { "SQLSTATE $sqlState" }
                   if ($detail -eq 'SQLSTATE unavailable') {
-                      if ($serializedResult -match '(?i)privilege|permission|access') { $detail = 'category PRIVILEGE' }
+                      if ($serializedResult -match '(?i)PostgresException') { $detail = 'exception POSTGRES' }
+                      elseif ($serializedResult -match '(?i)NpgsqlException') { $detail = 'exception NPGSQL' }
+                      elseif ($serializedResult -match '(?i)SocketException') { $detail = 'exception SOCKET' }
+                      elseif ($serializedResult -match '(?i)authentication|password|role') { $detail = 'category AUTHENTICATION' }
+                      elseif ($serializedResult -match '(?i)privilege|permission|access') { $detail = 'category PRIVILEGE' }
                       elseif ($serializedResult -match '(?i)connection|socket|timeout') { $detail = 'category CONNECTION' }
                       elseif ($serializedResult -match '(?i)schema|relation|table|column|migration') { $detail = 'category SCHEMA' }
                       elseif ($serializedResult -match '(?i)assert|expected|actual') { $detail = 'category ASSERTION' }
