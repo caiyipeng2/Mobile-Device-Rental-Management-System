@@ -123,6 +123,11 @@ code { color: #3d4a5e; font-family: var(--desk-data); font-size: 12px; }
 .closed-page { background: #fff; border: 1px solid var(--desk-line); padding: 32px; }
 .closed-page p { color: var(--desk-muted); font-size: 14px; line-height: 1.6; }
 .closed-next { margin: 20px 0; color: var(--desk-ink) !important; }
+.admin-layout { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 16px; }
+.admin-form-card { padding: 20px; }
+.admin-form-card h2 { margin-bottom: 4px; }
+.field-hint { color: var(--desk-muted); font-size: 11px; line-height: 1.45; }
+.admin-inventory { min-width: 0; }
 
 @media (max-width: 760px) {
   .site-nav { min-height: 58px; padding: 0 14px; gap: 12px; }
@@ -148,6 +153,7 @@ code { color: #3d4a5e; font-family: var(--desk-data); font-size: 12px; }
   .result-count { width: 100%; margin: 2px 0 0; }
   .panel-header { min-height: 62px; padding: 11px 13px; }
   .panel-header p { font-size: 11px; }
+  .admin-layout { grid-template-columns: 1fr; }
   .role-badge { font-size: 10px; }
   .device-table-wrap { display: none; }
   .device-cards { display: grid; gap: 0; }

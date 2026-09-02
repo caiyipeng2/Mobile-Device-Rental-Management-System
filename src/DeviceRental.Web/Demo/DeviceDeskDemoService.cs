@@ -21,6 +21,13 @@ public interface IDeviceDeskService
         DateTimeOffset nowUtc,
         string? reason);
 
+    DeviceDeskOperationResult AddDevice(
+        string assetNumber,
+        string modelName,
+        string tier,
+        string? imageReference,
+        DemoCurrentUser user);
+
     DeviceDeskOperationResult SetAvailability(
         string assetNumber,
         DeviceDeskAvailability availability,
@@ -149,6 +156,55 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
         }
     }
 
+    public DeviceDeskOperationResult AddDevice(
+        string assetNumber,
+        string modelName,
+        string tier,
+        string? imageReference,
+        DemoCurrentUser user)
+    {
+        if (!user.IsAdministrator)
+        {
+            return DeviceDeskOperationResult.Failure("只有测试组管理员可以新增设备。");
+        }
+
+        var normalizedAsset = assetNumber?.Trim();
+        var normalizedModel = modelName?.Trim();
+        var normalizedTier = tier?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedAsset) || string.IsNullOrWhiteSpace(normalizedModel))
+        {
+            return DeviceDeskOperationResult.Failure("资产编号和型号名称均为必填项。");
+        }
+
+        if (normalizedTier is not ("低端" or "中端" or "高端"))
+        {
+            return DeviceDeskOperationResult.Failure("档位必须选择低端、中端或高端。");
+        }
+
+        lock (_gate)
+        {
+            if (Find(normalizedAsset) is not null)
+            {
+                return DeviceDeskOperationResult.Failure("资产编号已存在，请换一个编号。");
+            }
+
+            var tierColor = normalizedTier switch
+            {
+                "低端" => "#697386",
+                "中端" => "#2e7b78",
+                _ => "#7b5db2",
+            };
+            _devices.Add(new MutableDevice(
+                normalizedAsset,
+                normalizedModel,
+                normalizedTier,
+                DeviceDeskAvailability.Available,
+                tierColor,
+                imageReference: imageReference?.Trim()));
+            return DeviceDeskOperationResult.Success($"已新增设备 {normalizedModel}（{normalizedAsset}）。");
+        }
+    }
+
     public IReadOnlyList<DeviceDeskLoan> GetLoans(DemoCurrentUser user)
     {
         ArgumentNullException.ThrowIfNull(user);
@@ -257,7 +313,8 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
         string tierColor,
         string? borrowerName = null,
         DateTimeOffset? dueAtUtc = null,
-        string? unavailableReason = null)
+        string? unavailableReason = null,
+        string? imageReference = null)
     {
         public string AssetNumber { get; } = assetNumber;
 
@@ -275,6 +332,8 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
 
         public string? UnavailableReason { get; set; } = unavailableReason;
 
+        public string? ImageReference { get; } = imageReference;
+
         public DeviceDeskDevice ToSnapshot() => new(
             AssetNumber,
             ModelName,
@@ -283,7 +342,8 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
             Availability,
             BorrowerName,
             DueAtUtc,
-            UnavailableReason);
+            UnavailableReason,
+            ImageReference);
     }
 
     private sealed class MutableLoan(
@@ -365,7 +425,8 @@ public sealed record DeviceDeskDevice(
     DeviceDeskAvailability Availability,
     string? BorrowerName,
     DateTimeOffset? DueAtUtc,
-    string? UnavailableReason)
+    string? UnavailableReason,
+    string? ImageReference = null)
 {
     public string StatusLabel => Availability switch
     {

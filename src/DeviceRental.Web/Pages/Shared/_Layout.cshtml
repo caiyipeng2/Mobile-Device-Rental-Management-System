@@ -23,6 +23,10 @@
                 <a asp-page="/Index" aria-current="@(ViewContext.RouteData.Values["page"]?.ToString() == "/Index" ? "page" : null)">设备</a>
                 <a asp-page="/Loans" aria-current="@(ViewContext.RouteData.Values["page"]?.ToString() == "/Loans" ? "page" : null)">借用记录</a>
                 <a asp-page="/Privacy">借用说明</a>
+                @if (currentUser.IsAdministrator)
+                {
+                    <a asp-page="/Admin/Devices">设备维护</a>
+                }
                 <a asp-page="/Account/Login">登录</a>
             </div>
             <span class="nav-user"><strong>@currentUser.DisplayName</strong><small>@currentUser.RoleDisplayName</small></span>

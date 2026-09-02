@@ -1,0 +1,60 @@
+@page "/Admin/Devices"
+@model DevicesModel
+@{
+    ViewData["Title"] = "设备维护";
+}
+
+<section class="page-heading" aria-labelledby="admin-device-title">
+    <div>
+        <p class="eyebrow">测试组管理员</p>
+        <h1 id="admin-device-title">设备维护</h1>
+        <p class="page-description">新增设备后，它会以空闲状态出现在设备操作台。</p>
+    </div>
+    <a class="button button-secondary" asp-page="/Index">返回设备台账</a>
+</section>
+
+@if (Model.Feedback is not null)
+{
+    <section class="notice @(Model.FeedbackSucceeded ? "notice-success" : "notice-danger")" role="status" aria-live="polite">
+        <span class="notice-mark" aria-hidden="true"></span><p>@Model.Feedback</p>
+    </section>
+}
+
+<section class="admin-layout">
+    <div class="auth-card admin-form-card">
+        <h2>新增设备</h2>
+        <form method="post" asp-page-handler="Create" class="auth-form">
+            <label for="assetNumber">资产编号</label>
+            <input id="assetNumber" name="assetNumber" required maxlength="64" placeholder="例如 QA-061" />
+            <label for="modelName">型号名称</label>
+            <input id="modelName" name="modelName" required maxlength="200" placeholder="例如 OnePlus 13" />
+            <label for="tier">档位</label>
+            <select id="tier" name="tier" required>
+                <option value="">请选择档位</option>
+                <option value="低端">低端</option>
+                <option value="中端">中端</option>
+                <option value="高端">高端</option>
+            </select>
+            <label for="imageReference">展示图引用</label>
+            <input id="imageReference" name="imageReference" maxlength="256" placeholder="例如 oneplus-13.webp" />
+            <p class="field-hint">正式上传将执行 JPG/PNG/WebP 魔数、解码和尺寸校验。</p>
+            <button class="button button-primary" type="submit">新增设备</button>
+        </form>
+    </div>
+
+    <div class="device-panel admin-inventory">
+        <header class="panel-header"><div><h2>当前设备</h2><p>共 @Model.Devices.Count 台未归档设备。</p></div></header>
+        <div class="device-table-wrap">
+            <table class="device-table">
+                <caption class="sr-only">设备维护清单</caption>
+                <thead><tr><th>设备</th><th>资产编号</th><th>档位</th><th>展示图</th></tr></thead>
+                <tbody>
+                @foreach (var device in Model.Devices)
+                {
+                    <tr><td><strong>@device.ModelName</strong></td><td><code>@device.AssetNumber</code></td><td>@device.Tier</td><td>@(device.ImageReference ?? "未设置")</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
