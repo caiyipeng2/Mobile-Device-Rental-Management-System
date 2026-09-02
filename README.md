@@ -4,7 +4,7 @@ Internal mobile-device inventory and one-day lending system for a company test g
 
 ## Current status
 
-Development is in progress on `codex/mobile-device-rental-system`. The repository contains the approved specifications, responsive interface preview, .NET 10 modular monolith, identity application service, PostgreSQL identity/audit/outbox/device/loan migrations, and a clickable Razor Pages device desk. The Web MVP intentionally uses a process-local demo adapter until the transactional device/loan repository and production authentication UI are wired; it is not production-ready.
+Development is in progress on `codex/mobile-device-rental-system`. The repository contains the approved specifications, responsive interface preview, .NET 10 modular monolith, identity application service, PostgreSQL identity/audit/outbox/device/loan migrations, and a clickable Razor Pages device desk. The Web MVP now includes device search, loan history, administrator intake, force return, and configurable loan policy on a process-local adapter; it is not production-ready until the transactional device/loan repository, real image upload pipeline, email verification, and Worker notifications are wired.
 
 - [Requirements specification](docs/requirements-specification.md)
 - [Development design](docs/development-design.md)
