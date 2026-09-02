@@ -194,6 +194,16 @@ jobs:
               ForEach-Object Value |
               Sort-Object -Unique
           $sqlStates | Set-Content -LiteralPath $safeSqlStatePath
+
+          $categories = [System.Collections.Generic.HashSet[string]]::new()
+          foreach ($line in $testOutput) {
+              if ($line -match '(?i)connection|socket|timeout') { [void]$categories.Add('CONNECTION') }
+              if ($line -match '(?i)permission|privilege|access denied') { [void]$categories.Add('PRIVILEGE') }
+              if ($line -match '(?i)schema|relation|table|column|migration') { [void]$categories.Add('SCHEMA') }
+              if ($line -match '(?i)assert|expected|actual|test failed') { [void]$categories.Add('ASSERTION') }
+              if ($line -match '(?i)postgres|npgsql|sqlstate') { [void]$categories.Add('PROVIDER') }
+          }
+          $categories | Set-Content -LiteralPath 'artifacts/integration-results/database/safe-output-categories.txt'
           exit $exitCode
 
       - name: Publish database test failures
@@ -251,6 +261,15 @@ jobs:
               foreach ($line in Get-Content -LiteralPath $connectionDiagnosticPath) {
                   if (-not [string]::IsNullOrWhiteSpace($line)) {
                       Write-Output "::error title=Database connection classification::$line"
+                  }
+              }
+          }
+
+          $safeCategoryPath = 'artifacts/integration-results/database/safe-output-categories.txt'
+          if (Test-Path -LiteralPath $safeCategoryPath -PathType Leaf) {
+              foreach ($category in Get-Content -LiteralPath $safeCategoryPath) {
+                  if (-not [string]::IsNullOrWhiteSpace($category)) {
+                      Write-Output "::error title=Database output category::$category"
                   }
               }
           }
