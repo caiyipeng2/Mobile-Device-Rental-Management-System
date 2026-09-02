@@ -199,8 +199,12 @@ jobs:
                   $_.outcome -notin @('Passed', 'NotExecuted')
               })
               foreach ($result in $failed) {
-                  # Publish only the test name/outcome; raw stack traces can contain paths or data.
-                  Write-Output "::error title=Database test failure::$($result.testName) - outcome: $($result.outcome)"
+                  # Publish only the test name, outcome, and a SQLSTATE class/code if present.
+                  # Raw stack traces and provider messages can contain paths or data.
+                  $rawMessage = [string]$result.Output.ErrorInfo.Message
+                  $sqlState = [regex]::Match($rawMessage, '\b(?:0[0-9A-Z]{4}|1[0-9A-Z]{4}|2[0-9A-Z]{4}|25[0-9A-Z]{3}|28[0-9A-Z]{3}|22[0-9A-Z]{3}|23[0-9A-Z]{3}|42[0-9A-Z]{3}|XX[0-9A-Z]{3})\b').Value
+                  $detail = if ([string]::IsNullOrWhiteSpace($sqlState)) { 'SQLSTATE unavailable' } else { "SQLSTATE $sqlState" }
+                  Write-Output "::error title=Database test failure::$($result.testName) - outcome: $($result.outcome); $detail"
               }
           }
 
