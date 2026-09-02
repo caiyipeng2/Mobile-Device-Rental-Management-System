@@ -1,6 +1,8 @@
 using DeviceRental.Application.Identity;
+using DeviceRental.Application.Devices;
 using DeviceRental.Application.Policy;
 using DeviceRental.Infrastructure.Identity;
+using DeviceRental.Infrastructure.Images;
 using DeviceRental.Infrastructure.Persistence;
 using DeviceRental.Web.Demo;
 using DeviceRental.Web.Health;
@@ -14,6 +16,8 @@ builder.Services.AddRazorPages();
 builder.Services.AddSingleton<IDeviceDeskService, InMemoryDeviceDeskService>();
 builder.Services.AddSingleton<DemoCurrentUserContext>();
 builder.Services.AddSingleton<AccessWindowPolicy>();
+builder.Services.AddSingleton<IDeviceImageDecoder, SkiaSharpDeviceImageDecoder>();
+builder.Services.AddSingleton<DeviceImageUploadPolicy>();
 builder.Services.AddDbContext<DeviceRentalDbContext>((services, options) =>
 {
     var configuration = services.GetRequiredService<IConfiguration>();

@@ -13,7 +13,7 @@ REQ-DEV-002,Task 6,AdvancedDeviceDeskPageTests,Passing
 REQ-DEV-003,Task 6,DeviceCatalogServiceTests,Passing
 REQ-DEV-004,Task 6,DeviceCatalogCommandTests,Planned
 REQ-DEV-005,Task 6,PrivacyResponseTests,Planned
-REQ-DEV-006,Task 6,ImageValidationTests,Planned
+REQ-DEV-006,Task 6,DeviceImageUploadPolicyTests,Implemented
 REQ-DEV-007,Task 6,DeviceCatalogCommandTests,Planned
 REQ-DEV-008,Task 6,DeviceCatalogServiceTests,Passing
 REQ-DEV-009,Task 6,DeviceCatalogServiceTests,Passing
