@@ -859,7 +859,18 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddRange(parameters);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        try
+        {
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            var sqlState = exception is PostgresException postgres
+                ? postgres.SqlState
+                : "none";
+            Console.Error.WriteLine($"SAFE-SQL|{exception.GetType().Name}|{sqlState}");
+            throw;
+        }
     }
 
     private static void AssertSqlState(string expected, string actual)

@@ -208,6 +208,9 @@ jobs:
               if ($line -match '^SAFE-DIAGNOSTIC\|([A-Za-z0-9_.:-]+)\|([A-Za-z0-9_.:-]+)\|([A-Za-z0-9_.:-]+)$') {
                   Write-Output "::error title=Database safe diagnostic::$($Matches[1])|$($Matches[2])|$($Matches[3])"
               }
+              if ($line -match '^SAFE-SQL\|([A-Za-z0-9_.:-]+)\|([A-Za-z0-9_.:-]+)$') {
+                  Write-Output "::error title=Database SQL diagnostic::$($Matches[1])|$($Matches[2])"
+              }
           }
           exit $exitCode
 
