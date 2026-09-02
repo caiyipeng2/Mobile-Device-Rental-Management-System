@@ -231,8 +231,9 @@ jobs:
                       if ($serializedResult -match '(?i)PostgresException') { $detail = 'exception POSTGRES' }
                       elseif ($serializedResult -match '(?i)NpgsqlException') { $detail = 'exception NPGSQL' }
                       elseif ($serializedResult -match '(?i)SocketException') { $detail = 'exception SOCKET' }
-                      elseif ($serializedResult -match '(?i)authentication|password|role') { $detail = 'category AUTHENTICATION' }
-                      elseif ($serializedResult -match '(?i)privilege|permission|access') { $detail = 'category PRIVILEGE' }
+                      elseif ($serializedResult -match '(?i)ExpectedExceptionNotRaised|Expected PostgreSQL exception') { $detail = 'exception EXPECTED_NOT_RAISED' }
+                      elseif ($serializedResult -match '(?i)authentication|password') { $detail = 'category AUTHENTICATION' }
+                      elseif ($serializedResult -match '(?i)privilege|permission|access denied') { $detail = 'category PRIVILEGE' }
                       elseif ($serializedResult -match '(?i)connection|socket|timeout') { $detail = 'category CONNECTION' }
                       elseif ($serializedResult -match '(?i)schema|relation|table|column|migration') { $detail = 'category SCHEMA' }
                       elseif ($serializedResult -match '(?i)assert|expected|actual') { $detail = 'category ASSERTION' }
@@ -293,6 +294,7 @@ jobs:
                   }
               }
           }
+
 
       - name: Upload integration-test evidence
         if: always()
