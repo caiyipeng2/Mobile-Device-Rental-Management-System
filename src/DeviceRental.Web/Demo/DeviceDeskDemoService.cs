@@ -9,6 +9,8 @@ public interface IDeviceDeskService
 {
     DeviceDeskOverview GetOverview(DeviceDeskAvailability? availability, string? search = null);
 
+    int DefaultLoanMinutes { get; }
+
     IReadOnlyList<DeviceDeskLoan> GetLoans(DemoCurrentUser user);
 
     DeviceDeskOperationResult Borrow(string assetNumber, DemoCurrentUser user, DateTimeOffset nowUtc);
@@ -28,6 +30,11 @@ public interface IDeviceDeskService
         string? imageReference,
         DemoCurrentUser user);
 
+    DeviceDeskOperationResult SetDefaultLoanMinutes(
+        int minutes,
+        string? reason,
+        DemoCurrentUser user);
+
     DeviceDeskOperationResult SetAvailability(
         string assetNumber,
         DeviceDeskAvailability availability,
@@ -39,6 +46,18 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
 {
     private readonly object _gate = new();
     private readonly List<MutableLoan> _loans = [];
+    private int _defaultLoanMinutes = 1_440;
+
+    public int DefaultLoanMinutes
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _defaultLoanMinutes;
+            }
+        }
+    }
     private readonly List<MutableDevice> _devices =
     [
         new("NAT-021", "iPhone 16 Pro", "高端", DeviceDeskAvailability.Available, "#7b5db2"),
@@ -88,7 +107,7 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
 
             device.Availability = DeviceDeskAvailability.Borrowed;
             device.BorrowerName = user.DisplayName;
-            device.DueAtUtc = nowUtc.AddDays(1);
+            device.DueAtUtc = nowUtc.AddMinutes(_defaultLoanMinutes);
             device.UnavailableReason = null;
             _loans.Add(new MutableLoan(
                 device.AssetNumber,
@@ -202,6 +221,34 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
                 tierColor,
                 imageReference: imageReference?.Trim()));
             return DeviceDeskOperationResult.Success($"已新增设备 {normalizedModel}（{normalizedAsset}）。");
+        }
+    }
+
+    public DeviceDeskOperationResult SetDefaultLoanMinutes(
+        int minutes,
+        string? reason,
+        DemoCurrentUser user)
+    {
+        if (!user.IsAdministrator)
+        {
+            return DeviceDeskOperationResult.Failure("只有测试组管理员可以修改默认借期。");
+        }
+
+        var normalizedReason = reason?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedReason))
+        {
+            return DeviceDeskOperationResult.Failure("修改借期时必须填写原因。");
+        }
+
+        if (minutes is < 60 or > 10_080)
+        {
+            return DeviceDeskOperationResult.Failure("默认借期必须在 60 分钟至 7 天之间。");
+        }
+
+        lock (_gate)
+        {
+            _defaultLoanMinutes = minutes;
+            return DeviceDeskOperationResult.Success($"默认借期已更新为 {minutes} 分钟：{normalizedReason}");
         }
     }
 

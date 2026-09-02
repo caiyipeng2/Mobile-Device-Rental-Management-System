@@ -1,0 +1,33 @@
+@page "/Admin/Policy"
+@model PolicyModel
+@{
+    ViewData["Title"] = "借期策略";
+}
+
+<section class="page-heading" aria-labelledby="policy-title">
+    <div>
+        <p class="eyebrow">测试组管理员</p>
+        <h1 id="policy-title">借期策略</h1>
+        <p class="page-description">默认借期只影响后续新借用，现有借用需要单独续借。</p>
+    </div>
+    <a class="button button-secondary" asp-page="/Index">返回设备台账</a>
+</section>
+
+@if (Model.Feedback is not null)
+{
+    <section class="notice @(Model.FeedbackSucceeded ? "notice-success" : "notice-danger")" role="status" aria-live="polite">
+        <span class="notice-mark" aria-hidden="true"></span><p>@Model.Feedback</p>
+    </section>
+}
+
+<section class="auth-card policy-card">
+    <h2>默认借期</h2>
+    <p class="page-description">当前：<strong>@Model.DefaultLoanMinutes 分钟</strong>（@(Model.DefaultLoanMinutes / 60.0).ToString("0.#") 小时）</p>
+    <form method="post" asp-page-handler="Save" class="auth-form">
+        <label for="minutes">分钟数</label>
+        <input id="minutes" name="minutes" type="number" min="60" max="10080" step="60" value="@Model.DefaultLoanMinutes" required />
+        <label for="reason">变更原因</label>
+        <input id="reason" name="reason" maxlength="200" required placeholder="例如：专项回归测试" />
+        <button class="button button-primary" type="submit">保存策略</button>
+    </form>
+</section>

@@ -128,6 +128,7 @@ code { color: #3d4a5e; font-family: var(--desk-data); font-size: 12px; }
 .admin-form-card h2 { margin-bottom: 4px; }
 .field-hint { color: var(--desk-muted); font-size: 11px; line-height: 1.45; }
 .admin-inventory { min-width: 0; }
+.policy-card { max-width: 520px; }
 
 @media (max-width: 760px) {
   .site-nav { min-height: 58px; padding: 0 14px; gap: 12px; }
