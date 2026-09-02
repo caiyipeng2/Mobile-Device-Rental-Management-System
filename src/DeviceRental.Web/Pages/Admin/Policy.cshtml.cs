@@ -16,7 +16,7 @@ public sealed class PolicyModel(
 
     public IActionResult OnGet()
     {
-        if (!currentUserContext.GetCurrentUser().IsAdministrator)
+        if (!currentUserContext.GetCurrentUser(User).IsAdministrator)
         {
             return RedirectToPage("/Index");
         }
@@ -27,7 +27,7 @@ public sealed class PolicyModel(
 
     public IActionResult OnPostSave(int minutes, string? reason)
     {
-        var user = currentUserContext.GetCurrentUser();
+        var user = currentUserContext.GetCurrentUser(User);
         if (!user.IsAdministrator)
         {
             return RedirectToPage("/Index");

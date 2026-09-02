@@ -1,6 +1,6 @@
 @inject DemoCurrentUserContext DemoUserContext
 @{
-    var currentUser = DemoUserContext.GetCurrentUser();
+    var currentUser = DemoUserContext.GetCurrentUser(User);
 }
 <!DOCTYPE html>
 <html lang="zh-CN">

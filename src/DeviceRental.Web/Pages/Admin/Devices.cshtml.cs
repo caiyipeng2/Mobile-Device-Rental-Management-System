@@ -16,7 +16,7 @@ public sealed class DevicesModel(
 
     public IActionResult OnGet()
     {
-        var user = currentUserContext.GetCurrentUser();
+        var user = currentUserContext.GetCurrentUser(User);
         if (!user.IsAdministrator)
         {
             return RedirectToPage("/Index");
@@ -32,7 +32,7 @@ public sealed class DevicesModel(
         string? tier,
         string? imageReference)
     {
-        var user = currentUserContext.GetCurrentUser();
+        var user = currentUserContext.GetCurrentUser(User);
         if (!user.IsAdministrator)
         {
             return RedirectToPage("/Index");

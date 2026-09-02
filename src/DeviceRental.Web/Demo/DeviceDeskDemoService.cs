@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 namespace DeviceRental.Web.Demo;
 
 /// <summary>
@@ -435,8 +437,20 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
 
 public sealed class DemoCurrentUserContext(IConfiguration configuration)
 {
-    public DemoCurrentUser GetCurrentUser()
+    public DemoCurrentUser GetCurrentUser(ClaimsPrincipal? principal = null)
     {
+        if (principal?.Identity?.IsAuthenticated == true)
+        {
+            var claimName = principal.FindFirstValue(ClaimTypes.Name);
+            var claimRole = principal.FindFirstValue(ClaimTypes.Role);
+            if (!string.IsNullOrWhiteSpace(claimName))
+            {
+                return new DemoCurrentUser(
+                    claimName.Trim(),
+                    string.Equals(claimRole, "TEST_ADMIN", StringComparison.Ordinal));
+            }
+        }
+
         var displayName = configuration["Demo:CurrentUserName"];
         var role = configuration["Demo:CurrentUserRole"];
         var isAdministrator = string.Equals(role, "TestAdmin", StringComparison.OrdinalIgnoreCase);

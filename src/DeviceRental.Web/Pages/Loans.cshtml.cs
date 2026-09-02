@@ -13,7 +13,7 @@ public sealed class LoansModel(
 
     public void OnGet()
     {
-        var user = currentUserContext.GetCurrentUser();
+        var user = currentUserContext.GetCurrentUser(User);
         IsAdministrator = user.IsAdministrator;
         Loans = deviceDesk.GetLoans(user);
     }

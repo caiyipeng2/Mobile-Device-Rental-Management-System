@@ -67,7 +67,7 @@ public sealed class IndexModel(
         Overview = deviceDesk.GetOverview(ParseAvailability(), Search);
     }
 
-    private DemoCurrentUser GetCurrentUser() => currentUserContext.GetCurrentUser();
+    private DemoCurrentUser GetCurrentUser() => currentUserContext.GetCurrentUser(User);
 
     private DeviceDeskAvailability? ParseAvailability() =>
         Enum.TryParse<DeviceDeskAvailability>(Status, true, out var value) ? value : null;
