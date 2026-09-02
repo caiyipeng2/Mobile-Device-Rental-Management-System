@@ -1,4 +1,5 @@
 using DeviceRental.Infrastructure.Persistence;
+using DeviceRental.Web.Demo;
 using DeviceRental.Web.Health;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
+builder.Services.AddSingleton<IDeviceDeskService, InMemoryDeviceDeskService>();
+builder.Services.AddSingleton<DemoCurrentUserContext>();
 builder.Services.AddDbContext<DeviceRentalDbContext>((services, options) =>
 {
     var configuration = services.GetRequiredService<IConfiguration>();

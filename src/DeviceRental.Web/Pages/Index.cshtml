@@ -1,10 +1,162 @@
-﻿@page
+@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "设备操作台";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="page-heading" aria-labelledby="page-title">
+    <div>
+        <p class="eyebrow">测试设备台账</p>
+        <h1 id="page-title">设备操作台</h1>
+        <p class="page-description">查看当前可用测试设备；单次借用最长 24 小时，到期后请归还或联系管理员续借。</p>
+    </div>
+    <div class="user-context" aria-label="当前演示账户">
+        <span class="avatar" aria-hidden="true">@Model.CurrentUser.DisplayName[..1]</span>
+        <span><strong>@Model.CurrentUser.DisplayName</strong><small>@Model.CurrentUser.RoleDisplayName</small></span>
+    </div>
+</section>
+
+<section class="notice notice-info" aria-label="演示模式说明">
+    <span class="notice-mark" aria-hidden="true"></span>
+    <p><strong>演示模式</strong>：当前操作仅保存在此 Web 进程内，重启后将恢复示例数据。</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.Feedback))
+{
+    <section class="notice @(Model.FeedbackSucceeded ? "notice-success" : "notice-danger")" role="status" aria-live="polite">
+        <span class="notice-mark" aria-hidden="true"></span>
+        <p>@Model.Feedback</p>
+    </section>
+}
+
+<section class="metric-grid" aria-label="设备状态概览">
+    <a class="metric" href="@Model.FilterUrl(null)" aria-current="@(Model.IsSelected(null) ? "page" : null)">
+        <span class="metric-value">@Model.Overview.Summary.Total</span><span class="metric-label">全部设备</span>
+    </a>
+    <a class="metric metric-available" href="@Model.FilterUrl(DeviceDeskAvailability.Available)" aria-current="@(Model.IsSelected(DeviceDeskAvailability.Available) ? "page" : null)">
+        <span class="metric-value">@Model.Overview.Summary.Available</span><span class="metric-label">空闲</span>
+    </a>
+    <a class="metric metric-borrowed" href="@Model.FilterUrl(DeviceDeskAvailability.Borrowed)" aria-current="@(Model.IsSelected(DeviceDeskAvailability.Borrowed) ? "page" : null)">
+        <span class="metric-value">@Model.Overview.Summary.Borrowed</span><span class="metric-label">借用中</span>
+    </a>
+    <a class="metric metric-unavailable" href="@Model.FilterUrl(DeviceDeskAvailability.Unavailable)" aria-current="@(Model.IsSelected(DeviceDeskAvailability.Unavailable) ? "page" : null)">
+        <span class="metric-value">@Model.Overview.Summary.Unavailable</span><span class="metric-label">暂不可借</span>
+    </a>
+</section>
+
+<form class="filter-bar" method="get" aria-label="筛选设备">
+    <label for="status">设备状态</label>
+    <select id="status" name="status">
+        <option value="" selected="@Model.IsSelected(null)">全部状态</option>
+        <option value="Available" selected="@Model.IsSelected(DeviceDeskAvailability.Available)">空闲</option>
+        <option value="Borrowed" selected="@Model.IsSelected(DeviceDeskAvailability.Borrowed)">借用中</option>
+        <option value="Unavailable" selected="@Model.IsSelected(DeviceDeskAvailability.Unavailable)">暂不可借</option>
+    </select>
+    <button class="button button-secondary" type="submit">应用筛选</button>
+    <span class="result-count">显示 @Model.Overview.Devices.Count 台设备</span>
+</form>
+
+<section class="device-panel" aria-labelledby="device-list-title">
+    <header class="panel-header">
+        <div>
+            <h2 id="device-list-title">设备清单</h2>
+            <p>状态与借用人信息会随演示操作即时更新。</p>
+        </div>
+        @if (Model.CurrentUser.IsAdministrator)
+        {
+            <span class="role-badge">管理员操作已启用</span>
+        }
+    </header>
+
+    <div class="device-table-wrap">
+        <table class="device-table">
+            <caption class="sr-only">测试设备及当前借用状态</caption>
+            <thead>
+                <tr><th scope="col">设备</th><th scope="col">资产标签</th><th scope="col">状态</th><th scope="col">借用信息</th><th scope="col">操作</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var device in Model.Overview.Devices)
+            {
+                var isMine = device.Availability == DeviceDeskAvailability.Borrowed && device.BorrowerName == Model.CurrentUser.DisplayName;
+                <tr>
+                    <td><div class="device-name"><span class="phone-art" style="--tier-color:@device.TierColor" aria-hidden="true"></span><span><strong>@device.ModelName</strong><small>@device.Tier</small></span></div></td>
+                    <td><code>@device.AssetNumber</code></td>
+                    <td><span class="status status-@device.Availability.ToString().ToLowerInvariant()"><span aria-hidden="true"></span>@device.StatusLabel</span></td>
+                    <td>
+                        @if (device.Availability == DeviceDeskAvailability.Borrowed)
+                        {
+                            <strong>@device.BorrowerName@(isMine ? "（本人）" : "")</strong>
+                            <small>预计归还：@device.DueAtUtc?.ToLocalTime().ToString("MM-dd HH:mm")</small>
+                        }
+                        else if (device.Availability == DeviceDeskAvailability.Unavailable)
+                        {
+                            <strong>不可借用</strong><small>@device.UnavailableReason</small>
+                        }
+                        else
+                        {
+                            <strong>可立即借用</strong><small>最长借期 24 小时</small>
+                        }
+                    </td>
+                    <td class="action-cell">
+                        @if (device.Availability == DeviceDeskAvailability.Available)
+                        {
+                            <form method="post" asp-page-handler="Borrow"><input type="hidden" name="deviceId" value="@device.AssetNumber" /><button class="button button-primary" type="submit">借用</button></form>
+                        }
+                        else if (isMine || Model.CurrentUser.IsAdministrator && device.Availability == DeviceDeskAvailability.Borrowed)
+                        {
+                            <form method="post" asp-page-handler="Return"><input type="hidden" name="deviceId" value="@device.AssetNumber" /><button class="button button-secondary" type="submit">归还</button></form>
+                        }
+                        else
+                        {
+                            <span class="muted">暂无可用操作</span>
+                        }
+
+                        @if (Model.CurrentUser.IsAdministrator && device.Availability != DeviceDeskAvailability.Borrowed)
+                        {
+                            <details class="admin-action">
+                                <summary>管理状态</summary>
+                                @if (device.Availability == DeviceDeskAvailability.Available)
+                                {
+                                    <form method="post" asp-page-handler="SetAvailability" class="compact-form">
+                                        <input type="hidden" name="deviceId" value="@device.AssetNumber" />
+                                        <input type="hidden" name="availability" value="Unavailable" />
+                                        <label>暂停原因<input name="reason" required maxlength="120" placeholder="例如：摄像头检修" /></label>
+                                        <button class="button button-danger" type="submit">暂停借用</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-page-handler="SetAvailability">
+                                        <input type="hidden" name="deviceId" value="@device.AssetNumber" />
+                                        <input type="hidden" name="availability" value="Available" />
+                                        <button class="button button-secondary" type="submit">恢复空闲</button>
+                                    </form>
+                                }
+                            </details>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="device-cards" aria-label="移动端设备列表">
+    @foreach (var device in Model.Overview.Devices)
+    {
+        var isMine = device.Availability == DeviceDeskAvailability.Borrowed && device.BorrowerName == Model.CurrentUser.DisplayName;
+        <article class="device-card" style="--tier-color:@device.TierColor">
+            <div class="device-card-heading"><span class="phone-art" aria-hidden="true"></span><span><strong>@device.ModelName</strong><small>@device.AssetNumber · @device.Tier</small></span><span class="status status-@device.Availability.ToString().ToLowerInvariant()"><span aria-hidden="true"></span>@device.StatusLabel</span></div>
+            <p>@(device.Availability == DeviceDeskAvailability.Borrowed ? $"{device.BorrowerName}{(isMine ? "（本人）" : "")} · {device.DueAtUtc?.ToLocalTime():MM-dd HH:mm} 归还" : device.Availability == DeviceDeskAvailability.Unavailable ? device.UnavailableReason : "可立即借用，最长借期 24 小时")</p>
+            @if (device.Availability == DeviceDeskAvailability.Available)
+            {
+                <form method="post" asp-page-handler="Borrow"><input type="hidden" name="deviceId" value="@device.AssetNumber" /><button class="button button-primary" type="submit">借用</button></form>
+            }
+            else if (isMine || Model.CurrentUser.IsAdministrator && device.Availability == DeviceDeskAvailability.Borrowed)
+            {
+                <form method="post" asp-page-handler="Return"><input type="hidden" name="deviceId" value="@device.AssetNumber" /><button class="button button-secondary" type="submit">归还</button></form>
+            }
+        </article>
+    }
+    </div>
+</section>
