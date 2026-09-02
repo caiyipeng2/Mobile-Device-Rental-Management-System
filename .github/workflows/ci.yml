@@ -312,6 +312,15 @@ jobs:
               }
           }
 
+          $assemblyDiagnosticPath = 'tests/DeviceRental.IntegrationTests/bin/Release/net10.0/safe-diagnostics.txt'
+          if (Test-Path -LiteralPath $assemblyDiagnosticPath -PathType Leaf) {
+              foreach ($line in Get-Content -LiteralPath $assemblyDiagnosticPath) {
+                  if ($line -match '^SAFE-(?:DIAGNOSTIC|SQL)\|[A-Za-z0-9_.:-]+\|[A-Za-z0-9_.:-]+(?:\|[A-Za-z0-9_.:-]+)?$') {
+                      Write-Output "::error title=Database assembly diagnostic::$line"
+                  }
+              }
+          }
+
 
       - name: Upload integration-test evidence
         if: always()

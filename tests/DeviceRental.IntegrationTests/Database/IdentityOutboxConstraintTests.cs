@@ -919,23 +919,32 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     private static void WriteSafeDiagnostic(string line)
     {
         Console.Error.WriteLine(line);
-        var summaryPath = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
-        if (string.IsNullOrWhiteSpace(summaryPath))
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            return;
+            Path.Combine(AppContext.BaseDirectory, "safe-diagnostics.txt"),
+        };
+        var configuredDirectory = Environment.GetEnvironmentVariable(
+            "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY");
+        if (!string.IsNullOrWhiteSpace(configuredDirectory))
+        {
+            paths.Add(Path.Combine(configuredDirectory, "safe-diagnostics.txt"));
         }
 
-        try
+        foreach (var path in paths)
         {
-            File.AppendAllText(summaryPath, line + Environment.NewLine);
-        }
-        catch (IOException)
-        {
-            // Diagnostics must never mask the underlying test result.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Diagnostics must never mask the underlying test result.
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.AppendAllText(path, line + Environment.NewLine);
+            }
+            catch (IOException)
+            {
+                // Diagnostics must never mask the underlying test result.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Diagnostics must never mask the underlying test result.
+            }
         }
     }
 
