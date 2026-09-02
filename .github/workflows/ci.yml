@@ -208,6 +208,13 @@ jobs:
               }
           }
 
+          $safeDiagnosticPath = 'artifacts/integration-results/database/safe-diagnostics.txt'
+          if (Test-Path -LiteralPath $safeDiagnosticPath -PathType Leaf) {
+              foreach ($line in Get-Content -LiteralPath $safeDiagnosticPath) {
+                  Write-Output "::error title=Database setup classification::$line"
+              }
+          }
+
       - name: Upload integration-test evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

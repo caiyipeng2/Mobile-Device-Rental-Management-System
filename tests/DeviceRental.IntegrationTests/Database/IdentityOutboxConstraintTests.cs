@@ -656,12 +656,33 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
 
     private async Task PrepareDatabaseAsync(CancellationToken cancellationToken)
     {
-        await DatabaseReset.ResetAsync(database, cancellationToken);
-        await using var context = InfrastructureDbContextFactory.Create(
-            database.MigrationConnectionString);
-        Assert.NotEmpty(context.Database.GetMigrations());
-        await context.Database.MigrateAsync(cancellationToken);
-        await DatabaseReset.GrantApplicationAccessAsync(database, cancellationToken);
+        try
+        {
+            await DatabaseReset.ResetAsync(database, cancellationToken);
+            await using var context = InfrastructureDbContextFactory.Create(
+                database.MigrationConnectionString);
+            Assert.NotEmpty(context.Database.GetMigrations());
+            await context.Database.MigrateAsync(cancellationToken);
+            await DatabaseReset.GrantApplicationAccessAsync(database, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            var sqlState = exception is PostgresException postgres
+                ? postgres.SqlState
+                : "none";
+            var diagnosticPath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "artifacts",
+                "integration-results",
+                "database",
+                "safe-diagnostics.txt");
+            Directory.CreateDirectory(Path.GetDirectoryName(diagnosticPath)!);
+            await File.AppendAllTextAsync(
+                diagnosticPath,
+                $"PrepareDatabaseAsync|{exception.GetType().Name}|{sqlState}{Environment.NewLine}",
+                cancellationToken);
+            throw;
+        }
     }
 
     private static async Task InsertUserAsync(
