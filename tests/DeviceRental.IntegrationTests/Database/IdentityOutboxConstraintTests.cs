@@ -21,7 +21,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
 
         var missingEmail = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertUserAsync(connection, Guid.NewGuid(), "missing@example.test", null, cancellationToken));
-        Assert.Equal(PostgresErrorCodes.NotNullViolation, missingEmail.SqlState);
+        AssertSqlState(PostgresErrorCodes.NotNullViolation, missingEmail.SqlState);
 
         var mismatchedVerification = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertUserAsync(
@@ -31,7 +31,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 "MISMATCH@EXAMPLE.TEST",
                 cancellationToken,
                 emailConfirmed: true));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, mismatchedVerification.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, mismatchedVerification.SqlState);
 
         var timestampWithoutConfirmation = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertUserAsync(
@@ -41,7 +41,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 "TIMESTAMP-ONLY@EXAMPLE.TEST",
                 cancellationToken,
                 emailVerifiedAt: DateTimeOffset.UtcNow));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, timestampWithoutConfirmation.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, timestampWithoutConfirmation.SqlState);
 
         await InsertUserAsync(
             connection,
@@ -65,7 +65,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 "second@example.test",
                 "DUPLICATE@EXAMPLE.TEST",
                 cancellationToken));
-        Assert.Equal(PostgresErrorCodes.UniqueViolation, duplicateEmail.SqlState);
+        AssertSqlState(PostgresErrorCodes.UniqueViolation, duplicateEmail.SqlState);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         await InsertRoleAsync(connection, "TEST_ADMIN", cancellationToken);
         var invalidRole = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertRoleAsync(connection, "SYSTEM_ADMIN", cancellationToken));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, invalidRole.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, invalidRole.SqlState);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
 
         var missingEventType = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(connection, eventType: null, cancellationToken));
-        Assert.Equal(PostgresErrorCodes.NotNullViolation, missingEventType.SqlState);
+        AssertSqlState(PostgresErrorCodes.NotNullViolation, missingEventType.SqlState);
 
         var missingCorrelation = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -128,7 +128,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 eventType: "DEVICE_CREATED",
                 cancellationToken,
                 nullCorrelationId: true));
-        Assert.Equal(PostgresErrorCodes.NotNullViolation, missingCorrelation.SqlState);
+        AssertSqlState(PostgresErrorCodes.NotNullViolation, missingCorrelation.SqlState);
 
         foreach (var invalidShape in new[] { "[]", "{}", "{\"before\":{}}", "{\"after\":{}}" })
         {
@@ -138,7 +138,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                     eventType: "DEVICE_CREATED",
                     cancellationToken,
                     changedFieldsJson: invalidShape));
-            Assert.Equal(PostgresErrorCodes.CheckViolation, invalidChangedFields.SqlState);
+            AssertSqlState(PostgresErrorCodes.CheckViolation, invalidChangedFields.SqlState);
         }
 
         const string malformedJsonSql = "SELECT CAST(@document AS jsonb);";
@@ -146,7 +146,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         malformedJson.Parameters.AddWithValue("document", "{not-json");
         var invalidJson = await Assert.ThrowsAsync<PostgresException>(() =>
             malformedJson.ExecuteNonQueryAsync(cancellationToken));
-        Assert.Equal(PostgresErrorCodes.InvalidTextRepresentation, invalidJson.SqlState);
+        AssertSqlState(PostgresErrorCodes.InvalidTextRepresentation, invalidJson.SqlState);
     }
 
     [Fact]
@@ -173,7 +173,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 cancellationToken,
                 actorKind: "SYSTEM",
                 actorUserId: userId));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, systemWithUser.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, systemWithUser.SqlState);
 
         var userWithoutId = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -181,7 +181,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 "DEVICE_CREATED",
                 cancellationToken,
                 actorKind: "USER"));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, userWithoutId.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, userWithoutId.SqlState);
 
         var userWithExternalIdentifier = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -191,7 +191,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 actorKind: "USER",
                 actorUserId: userId,
                 externalActorIdentifier: "deployment-42"));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, userWithExternalIdentifier.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, userWithExternalIdentifier.SqlState);
 
         var userWithoutIdWithExternalIdentifier = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -200,7 +200,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 cancellationToken,
                 actorKind: "USER",
                 externalActorIdentifier: "deployment-42"));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, userWithoutIdWithExternalIdentifier.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, userWithoutIdWithExternalIdentifier.SqlState);
 
         var systemWithExternalIdentifier = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -209,7 +209,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 cancellationToken,
                 actorKind: "SYSTEM",
                 externalActorIdentifier: "deployment-42"));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, systemWithExternalIdentifier.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, systemWithExternalIdentifier.SqlState);
 
         var systemWithBothIdentifiers = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -219,7 +219,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 actorKind: "SYSTEM",
                 actorUserId: userId,
                 externalActorIdentifier: "deployment-42"));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, systemWithBothIdentifiers.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, systemWithBothIdentifiers.SqlState);
 
         var operationsWithoutIdentifier = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -227,7 +227,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 "DEVICE_CREATED",
                 cancellationToken,
                 actorKind: "OPERATIONS"));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, operationsWithoutIdentifier.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, operationsWithoutIdentifier.SqlState);
 
         var operationsWithUser = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -237,7 +237,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 actorKind: "OPERATIONS",
                 actorUserId: userId,
                 externalActorIdentifier: "deployment-42"));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, operationsWithUser.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, operationsWithUser.SqlState);
 
         var operationsWithUserOnly = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -246,7 +246,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 cancellationToken,
                 actorKind: "OPERATIONS",
                 actorUserId: userId));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, operationsWithUserOnly.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, operationsWithUserOnly.SqlState);
 
         var unknownActorKind = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertAuditAsync(
@@ -254,7 +254,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 "DEVICE_CREATED",
                 cancellationToken,
                 actorKind: "SERVICE"));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, unknownActorKind.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, unknownActorKind.SqlState);
     }
 
     [Fact]
@@ -273,14 +273,14 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             "UPDATE device_rental.audit_events SET event_type = 'TAMPERED' WHERE event_id = @id;",
             cancellationToken,
             new NpgsqlParameter("id", eventId)));
-        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, update.SqlState);
+        AssertSqlState(PostgresErrorCodes.InsufficientPrivilege, update.SqlState);
 
         var delete = await Assert.ThrowsAsync<PostgresException>(() => ExecuteAsync(
             connection,
             "DELETE FROM device_rental.audit_events WHERE event_id = @id;",
             cancellationToken,
             new NpgsqlParameter("id", eventId)));
-        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, delete.SqlState);
+        AssertSqlState(PostgresErrorCodes.InsufficientPrivilege, delete.SqlState);
     }
 
     [Fact]
@@ -295,7 +295,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
 
         var missingKey = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertPendingOutboxAsync(connection, null, cancellationToken));
-        Assert.Equal(PostgresErrorCodes.NotNullViolation, missingKey.SqlState);
+        AssertSqlState(PostgresErrorCodes.NotNullViolation, missingKey.SqlState);
 
         var missingCorrelation = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertOutboxAsync(
@@ -307,12 +307,12 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 payloadCiphertext: [1, 2, 3],
                 cancellationToken: cancellationToken,
                 nullCorrelationId: true));
-        Assert.Equal(PostgresErrorCodes.NotNullViolation, missingCorrelation.SqlState);
+        AssertSqlState(PostgresErrorCodes.NotNullViolation, missingCorrelation.SqlState);
 
         await InsertPendingOutboxAsync(connection, "loan:42:borrowed", cancellationToken);
         var duplicateKey = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertPendingOutboxAsync(connection, "loan:42:borrowed", cancellationToken));
-        Assert.Equal(PostgresErrorCodes.UniqueViolation, duplicateKey.SqlState);
+        AssertSqlState(PostgresErrorCodes.UniqueViolation, duplicateKey.SqlState);
     }
 
     [Fact]
@@ -334,7 +334,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 payloadKeyVersion: "key-v1",
                 payloadCiphertext: [1, 2, 3],
                 cancellationToken: cancellationToken));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, invalidStatus.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, invalidStatus.SqlState);
     }
 
     [Fact]
@@ -374,7 +374,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                     lockedBy: lease.LockedBy,
                     lockedUntil: lease.LockedUntil,
                     createdAt: now));
-            Assert.Equal(PostgresErrorCodes.CheckViolation, invalidLease.SqlState);
+            AssertSqlState(PostgresErrorCodes.CheckViolation, invalidLease.SqlState);
         }
     }
 
@@ -410,7 +410,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                     payloadKeyVersion: payload.KeyVersion,
                     payloadCiphertext: payload.Ciphertext,
                     cancellationToken: cancellationToken));
-            Assert.Equal(PostgresErrorCodes.CheckViolation, invalidPayload.SqlState);
+            AssertSqlState(PostgresErrorCodes.CheckViolation, invalidPayload.SqlState);
         }
     }
 
@@ -436,7 +436,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 cancellationToken: cancellationToken,
                 attempts: 1,
                 createdAt: now));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, missingStateTimes.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, missingStateTimes.SqlState);
 
         var missingPurgeTime = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertOutboxAsync(
@@ -454,7 +454,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 sendingStartedAt: now.AddMinutes(1),
                 processedAt: now.AddMinutes(2),
                 createdAt: now));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, missingPurgeTime.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, missingPurgeTime.SqlState);
 
         var retainedAndPurged = await Assert.ThrowsAsync<PostgresException>(() =>
             InsertOutboxAsync(
@@ -473,7 +473,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 processedAt: now.AddMinutes(2),
                 payloadPurgedAt: now.AddMinutes(3),
                 createdAt: now));
-        Assert.Equal(PostgresErrorCodes.CheckViolation, retainedAndPurged.SqlState);
+        AssertSqlState(PostgresErrorCodes.CheckViolation, retainedAndPurged.SqlState);
 
         await InsertOutboxAsync(
             connection,
@@ -621,7 +621,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         foreach (var invalidRow in invalidRows)
         {
             var failure = await Assert.ThrowsAsync<PostgresException>(invalidRow);
-            Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);
+            AssertSqlState(PostgresErrorCodes.CheckViolation, failure.SqlState);
         }
     }
 
@@ -651,7 +651,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         await firstTransaction.CommitAsync(cancellationToken);
 
         var duplicate = await Assert.ThrowsAsync<PostgresException>(() => competingInsert);
-        Assert.Equal(PostgresErrorCodes.UniqueViolation, duplicate.SqlState);
+        AssertSqlState(PostgresErrorCodes.UniqueViolation, duplicate.SqlState);
     }
 
     private async Task PrepareDatabaseAsync(CancellationToken cancellationToken)
@@ -864,5 +864,24 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddRange(parameters);
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static void AssertSqlState(string expected, string actual)
+    {
+        if (!string.Equals(expected, actual, StringComparison.Ordinal))
+        {
+            var path = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "artifacts",
+                "integration-results",
+                "database",
+                "sqlstate-assertions.txt");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.AppendAllText(
+                path,
+                $"expected={expected}|actual={actual}{Environment.NewLine}");
+        }
+
+        Assert.Equal(expected, actual);
     }
 }

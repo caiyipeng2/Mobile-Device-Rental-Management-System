@@ -236,6 +236,15 @@ jobs:
               }
           }
 
+          $safeAssertionPath = 'artifacts/integration-results/database/sqlstate-assertions.txt'
+          if (Test-Path -LiteralPath $safeAssertionPath -PathType Leaf) {
+              foreach ($assertion in Get-Content -LiteralPath $safeAssertionPath) {
+                  if (-not [string]::IsNullOrWhiteSpace($assertion)) {
+                      Write-Output "::error title=Database assertion classification::$assertion"
+                  }
+              }
+          }
+
       - name: Upload integration-test evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
