@@ -246,6 +246,176 @@ namespace DeviceRental.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("DeviceRental.Infrastructure.Persistence.Records.DeviceRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AssetNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("asset_number");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("ImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("image_id");
+
+                    b.Property<bool>("IsArchived")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_archived");
+
+                    b.Property<string>("ManualState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("manual_state");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("model_name");
+
+                    b.Property<string>("TemporaryUnavailableReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("temporary_unavailable_reason");
+
+                    b.Property<string>("Tier")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("tier");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long>("Version")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_devices_asset_number");
+
+                    b.HasIndex("ManualState")
+                        .HasDatabaseName("ix_devices_manual_state");
+
+                    b.HasIndex("IsArchived", "Tier")
+                        .HasDatabaseName("ix_devices_archive_tier");
+
+                    b.ToTable("devices", "device_rental", t =>
+                        {
+                            t.HasCheckConstraint("ck_devices_id_nonzero", "id <> '00000000-0000-0000-0000-000000000000'::uuid");
+
+                            t.HasCheckConstraint("ck_devices_manual_state", "manual_state IN ('NORMAL', 'TEMPORARILY_DISABLED')");
+
+                            t.HasCheckConstraint("ck_devices_required_text", "btrim(asset_number) <> '' AND btrim(model_name) <> ''");
+
+                            t.HasCheckConstraint("ck_devices_tier", "tier IN ('LOW', 'MID', 'HIGH')");
+
+                            t.HasCheckConstraint("ck_devices_timestamps", "updated_at >= created_at");
+
+                            t.HasCheckConstraint("ck_devices_unavailable_reason", "(manual_state = 'NORMAL' AND temporary_unavailable_reason IS NULL) OR (manual_state = 'TEMPORARILY_DISABLED' AND temporary_unavailable_reason IS NOT NULL AND btrim(temporary_unavailable_reason) <> '')");
+
+                            t.HasCheckConstraint("ck_devices_version_positive", "version > 0");
+                        });
+                });
+
+            modelBuilder.Entity("DeviceRental.Infrastructure.Persistence.Records.LoanRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("BorrowedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("borrowed_at");
+
+                    b.Property<Guid>("BorrowerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("borrower_id");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("device_id");
+
+                    b.Property<DateTimeOffset>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<Guid>("PolicyVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("policy_version_id");
+
+                    b.Property<string>("ReturnKind")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("return_kind");
+
+                    b.Property<string>("ReturnReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("return_reason");
+
+                    b.Property<DateTimeOffset?>("ReturnedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("returned_at");
+
+                    b.Property<Guid?>("ReturnedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("returned_by_user_id");
+
+                    b.Property<long>("Version")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_loans_open_device")
+                        .HasFilter("returned_at IS NULL");
+
+                    b.HasIndex("ReturnedByUserId");
+
+                    b.HasIndex("BorrowerId", "BorrowedAt")
+                        .HasDatabaseName("ix_loans_borrower_borrowed_at");
+
+                    b.HasIndex("DueAt", "ReturnedAt")
+                        .HasDatabaseName("ix_loans_due_returned");
+
+                    b.ToTable("loans", "device_rental", t =>
+                        {
+                            t.HasCheckConstraint("ck_loans_id_nonzero", "id <> '00000000-0000-0000-0000-000000000000'::uuid");
+
+                            t.HasCheckConstraint("ck_loans_parties_nonzero", "device_id <> '00000000-0000-0000-0000-000000000000'::uuid AND borrower_id <> '00000000-0000-0000-0000-000000000000'::uuid AND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid");
+
+                            t.HasCheckConstraint("ck_loans_return_tuple", "(returned_at IS NULL AND returned_by_user_id IS NULL AND return_kind IS NULL AND return_reason IS NULL) OR (returned_at IS NOT NULL AND returned_by_user_id IS NOT NULL AND returned_by_user_id <> '00000000-0000-0000-0000-000000000000'::uuid AND return_kind IN ('SELF', 'FORCED') AND ((return_kind = 'SELF' AND returned_by_user_id = borrower_id AND return_reason IS NULL) OR (return_kind = 'FORCED' AND return_reason IS NOT NULL AND btrim(return_reason) <> '')))");
+
+                            t.HasCheckConstraint("ck_loans_time_order", "due_at > borrowed_at AND (returned_at IS NULL OR returned_at >= borrowed_at)");
+
+                            t.HasCheckConstraint("ck_loans_version_positive", "version > 0");
+                        });
+                });
+
             modelBuilder.Entity("DeviceRental.Infrastructure.Persistence.Records.OutboxMessageRecord", b =>
                 {
                     b.Property<Guid>("EventId")
@@ -554,6 +724,26 @@ namespace DeviceRental.Infrastructure.Persistence.Migrations
                     b.HasOne("DeviceRental.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("DeviceRental.Infrastructure.Persistence.Records.LoanRecord", b =>
+                {
+                    b.HasOne("DeviceRental.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("BorrowerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DeviceRental.Infrastructure.Persistence.Records.DeviceRecord", null)
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DeviceRental.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ReturnedByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

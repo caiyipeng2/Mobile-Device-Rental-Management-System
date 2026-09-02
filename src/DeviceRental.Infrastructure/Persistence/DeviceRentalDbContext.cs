@@ -16,6 +16,10 @@ public sealed class DeviceRentalDbContext(
 
     public DbSet<OutboxMessageRecord> OutboxMessages => Set<OutboxMessageRecord>();
 
+    public DbSet<DeviceRecord> Devices => Set<DeviceRecord>();
+
+    public DbSet<LoanRecord> Loans => Set<LoanRecord>();
+
     public override int SaveChanges()
     {
         RejectAuditHistoryMutations();

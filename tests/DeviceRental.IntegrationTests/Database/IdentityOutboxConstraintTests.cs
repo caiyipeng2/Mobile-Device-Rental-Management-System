@@ -656,30 +656,12 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
 
     private async Task PrepareDatabaseAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            await DatabaseReset.ResetAsync(database, cancellationToken);
-            await using var context = InfrastructureDbContextFactory.Create(
-                database.MigrationConnectionString);
-            Assert.NotEmpty(context.Database.GetMigrations());
-            await context.Database.MigrateAsync(cancellationToken);
-            await DatabaseReset.GrantApplicationAccessAsync(database, cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            var sqlState = exception is PostgresException postgres
-                ? postgres.SqlState
-                : "none";
-            var diagnosticDirectory = Environment.GetEnvironmentVariable(
-                "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
-            Directory.CreateDirectory(diagnosticDirectory);
-            await File.AppendAllTextAsync(
-                Path.Combine(diagnosticDirectory, "safe-diagnostics.txt"),
-                $"PrepareDatabaseAsync|{exception.GetType().Name}|{sqlState}{Environment.NewLine}",
-                cancellationToken);
-            WriteSafeDiagnostic($"SAFE-PREPARE|{exception.GetType().Name}|{sqlState}");
-            throw;
-        }
+        await DatabaseReset.ResetAsync(database, cancellationToken);
+        await using var context = InfrastructureDbContextFactory.Create(
+            database.MigrationConnectionString);
+        Assert.NotEmpty(context.Database.GetMigrations());
+        await context.Database.MigrateAsync(cancellationToken);
+        await DatabaseReset.GrantApplicationAccessAsync(database, cancellationToken);
     }
 
     private static async Task InsertUserAsync(
@@ -709,7 +691,9 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             cancellationToken,
             new NpgsqlParameter("id", id),
             new NpgsqlParameter("email", email),
-            new NpgsqlParameter("normalized_user_name", email.ToUpperInvariant()),
+            new NpgsqlParameter(
+                "normalized_user_name",
+                (normalizedEmail ?? email).ToUpperInvariant()),
             new NpgsqlParameter("normalized_email", (object?)normalizedEmail ?? DBNull.Value),
             new NpgsqlParameter("email_confirmed", emailConfirmed),
             new NpgsqlParameter("email_verified_at", (object?)emailVerifiedAt ?? DBNull.Value),
@@ -860,34 +844,10 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
     {
         await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddRange(parameters);
-        try
-        {
-            await command.ExecuteNonQueryAsync(cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            var sqlState = exception is PostgresException postgres
-                ? postgres.SqlState
-                : "none";
-            WriteSafeDiagnostic($"SAFE-SQL|{exception.GetType().Name}|{sqlState}");
-            throw;
-        }
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static void AssertSqlState(string expected, string actual)
-    {
-        if (!string.Equals(expected, actual, StringComparison.Ordinal))
-        {
-            var directory = Environment.GetEnvironmentVariable(
-                "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
-            Directory.CreateDirectory(directory);
-            File.AppendAllText(
-                Path.Combine(directory, "sqlstate-assertions.txt"),
-                $"expected={expected}|actual={actual}{Environment.NewLine}");
-        }
-
-        Assert.Equal(expected, actual);
-    }
+    private static void AssertSqlState(string expected, string actual) => Assert.Equal(expected, actual);
 
     private async Task<NpgsqlConnection> OpenApplicationConnectionAsync(
         string operation,
@@ -899,53 +859,10 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             await connection.OpenAsync(cancellationToken);
             return connection;
         }
-        catch (Exception exception)
+        catch
         {
             await connection.DisposeAsync();
-            var sqlState = exception is PostgresException postgres
-                ? postgres.SqlState
-                : "none";
-            var directory = Environment.GetEnvironmentVariable(
-                "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
-            Directory.CreateDirectory(directory);
-            await File.AppendAllTextAsync(
-                Path.Combine(directory, "connection-diagnostics.txt"),
-                $"{operation}|{exception.GetType().Name}|{sqlState}{Environment.NewLine}",
-                cancellationToken);
-            WriteSafeDiagnostic($"SAFE-DIAGNOSTIC|{operation}|{exception.GetType().Name}|{sqlState}");
             throw;
-        }
-    }
-
-    private static void WriteSafeDiagnostic(string line)
-    {
-        Console.Error.WriteLine(line);
-        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            Path.Combine(AppContext.BaseDirectory, "safe-diagnostics.txt"),
-        };
-        var configuredDirectory = Environment.GetEnvironmentVariable(
-            "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY");
-        if (!string.IsNullOrWhiteSpace(configuredDirectory))
-        {
-            paths.Add(Path.Combine(configuredDirectory, "safe-diagnostics.txt"));
-        }
-
-        foreach (var path in paths)
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.AppendAllText(path, line + Environment.NewLine);
-            }
-            catch (IOException)
-            {
-                // Diagnostics must never mask the underlying test result.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Diagnostics must never mask the underlying test result.
-            }
         }
     }
 
@@ -961,28 +878,6 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         {
             return exception;
         }
-        catch (Exception exception)
-        {
-            var sqlState = exception is NpgsqlException npgsql && npgsql.InnerException is PostgresException postgres
-                ? postgres.SqlState
-                : "none";
-            var directory = Environment.GetEnvironmentVariable(
-                "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
-            Directory.CreateDirectory(directory);
-            await File.AppendAllTextAsync(
-                Path.Combine(directory, "exception-diagnostics.txt"),
-                $"{operation}|{exception.GetType().Name}|{sqlState}{Environment.NewLine}");
-            WriteSafeDiagnostic($"SAFE-DIAGNOSTIC|{operation}|{exception.GetType().Name}|{sqlState}");
-            throw;
-        }
-
-        var noExceptionDirectory = Environment.GetEnvironmentVariable(
-            "DEVICERENTAL_SAFE_DIAGNOSTICS_DIRECTORY") ?? Directory.GetCurrentDirectory();
-        Directory.CreateDirectory(noExceptionDirectory);
-        await File.AppendAllTextAsync(
-            Path.Combine(noExceptionDirectory, "exception-diagnostics.txt"),
-            $"{operation}|ExpectedExceptionNotRaised|none{Environment.NewLine}");
-        WriteSafeDiagnostic($"SAFE-DIAGNOSTIC|{operation}|ExpectedExceptionNotRaised|none");
         throw new InvalidOperationException(
             $"Expected PostgreSQL exception was not raised in {operation}.");
     }

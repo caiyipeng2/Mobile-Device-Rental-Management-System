@@ -7,7 +7,8 @@ namespace DeviceRental.Infrastructure.Identity;
 
 public sealed class IdentityAccountStore(
     DeviceRentalDbContext dbContext,
-    UserManager<ApplicationUser> userManager) : IAccountStore
+    UserManager<ApplicationUser> userManager,
+    RoleManager<IdentityRole<Guid>> roleManager) : IAccountStore
 {
     private static readonly string DummyPasswordHash = new PasswordHasher<ApplicationUser>()
         .HashPassword(new ApplicationUser { RealName = "dummy" }, "dummy password only used for timing parity");
@@ -26,6 +27,7 @@ public sealed class IdentityAccountStore(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(account);
+        await EnsureRoleExistsAsync(ToIdentityRole(account.Role), cancellationToken);
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         var user = new ApplicationUser
         {
@@ -131,4 +133,25 @@ public sealed class IdentityAccountStore(
         AccountRole.TestAdmin => "TEST_ADMIN",
         _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown account role."),
     };
+
+    private async Task EnsureRoleExistsAsync(string roleName, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (await roleManager.RoleExistsAsync(roleName))
+        {
+            return;
+        }
+
+        var create = await roleManager.CreateAsync(new IdentityRole<Guid>
+        {
+            Id = Guid.NewGuid(),
+            Name = roleName,
+            NormalizedName = roleName,
+        });
+        if (!create.Succeeded && !await roleManager.RoleExistsAsync(roleName))
+        {
+            throw new InvalidOperationException(
+                $"The required application role '{roleName}' could not be created.");
+        }
+    }
 }

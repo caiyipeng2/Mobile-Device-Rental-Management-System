@@ -106,6 +106,19 @@ code { color: #3d4a5e; font-family: var(--desk-data); font-size: 12px; }
 
 .device-cards { display: none; }
 
+.auth-page, .closed-page { max-width: 520px; margin: 30px auto; }
+.auth-card { background: #fff; border: 1px solid var(--desk-line); padding: 26px; }
+.auth-card h1, .closed-page h1 { margin-bottom: 10px; }
+.auth-form { display: grid; gap: 7px; margin-top: 22px; }
+.auth-form label { color: #344054; font-size: 13px; font-weight: 700; }
+.auth-form input { width: 100%; margin-bottom: 7px; }
+.validation-summary, .field-error { color: var(--desk-danger); font-size: 12px; }
+.validation-summary ul { margin: 0 0 8px; padding-left: 18px; }
+.auth-link { margin: 18px 0 0; color: var(--desk-primary); font-size: 13px; font-weight: 650; }
+.closed-page { background: #fff; border: 1px solid var(--desk-line); padding: 32px; }
+.closed-page p { color: var(--desk-muted); font-size: 14px; line-height: 1.6; }
+.closed-next { margin: 20px 0; color: var(--desk-ink) !important; }
+
 @media (max-width: 760px) {
   .site-nav { min-height: 58px; padding: 0 14px; gap: 12px; }
   .brand { min-width: 0; font-size: 14px; }

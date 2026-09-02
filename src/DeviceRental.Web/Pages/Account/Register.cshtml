@@ -1,0 +1,31 @@
+@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "注册账户";
+}
+
+<section class="auth-page" aria-labelledby="register-title">
+    <div class="auth-card">
+        <p class="eyebrow">内部账户</p>
+        <h1 id="register-title">注册设备台账账户</h1>
+        <p class="page-description">使用公司邮箱注册。完成邮箱验证后即可登录。</p>
+        <form method="post" class="auth-form">
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+            <label asp-for="Input.Email"></label>
+            <input asp-for="Input.Email" autocomplete="email" inputmode="email" />
+            <span asp-validation-for="Input.Email" class="field-error"></span>
+            <label asp-for="Input.RealName"></label>
+            <input asp-for="Input.RealName" autocomplete="name" />
+            <span asp-validation-for="Input.RealName" class="field-error"></span>
+            <label asp-for="Input.Password"></label>
+            <input asp-for="Input.Password" autocomplete="new-password" />
+            <span asp-validation-for="Input.Password" class="field-error"></span>
+            <button class="button button-primary" type="submit">提交注册</button>
+        </form>
+        @if (Model.ResultMessage is not null)
+        {
+            <p class="notice notice-success" role="status">@Model.ResultMessage</p>
+        }
+        <p class="auth-link"><a asp-page="/Account/Login">已有账户，去登录</a></p>
+    </div>
+</section>

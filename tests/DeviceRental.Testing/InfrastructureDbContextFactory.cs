@@ -33,8 +33,12 @@ public static class InfrastructureDbContextFactory
             options.MigrationsHistoryTable("__EFMigrationsHistory", "device_rental");
         });
 
+        var expectedOptionsType = typeof(DbContextOptions<>).MakeGenericType(contextType);
         var options = genericBuilderType
-            .GetProperty(nameof(DbContextOptionsBuilder.Options))!
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Single(property =>
+                property.Name == nameof(DbContextOptionsBuilder.Options) &&
+                property.PropertyType == expectedOptionsType)
             .GetValue(optionsBuilder)
             ?? throw new InvalidOperationException($"Could not build options for {ContextTypeName}.");
         var constructor = contextType.GetConstructors()

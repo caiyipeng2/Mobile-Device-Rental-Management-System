@@ -47,6 +47,35 @@ namespace DeviceRental.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "devices",
+                schema: "device_rental",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    asset_number = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    model_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    tier = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: false),
+                    image_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    manual_state = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    temporary_unavailable_reason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    is_archived = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    version = table.Column<long>(type: "bigint", nullable: false, defaultValue: 1L),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_devices", x => x.id);
+                    table.CheckConstraint("ck_devices_id_nonzero", "id <> '00000000-0000-0000-0000-000000000000'::uuid");
+                    table.CheckConstraint("ck_devices_manual_state", "manual_state IN ('NORMAL', 'TEMPORARILY_DISABLED')");
+                    table.CheckConstraint("ck_devices_required_text", "btrim(asset_number) <> '' AND btrim(model_name) <> ''");
+                    table.CheckConstraint("ck_devices_tier", "tier IN ('LOW', 'MID', 'HIGH')");
+                    table.CheckConstraint("ck_devices_timestamps", "updated_at >= created_at");
+                    table.CheckConstraint("ck_devices_unavailable_reason", "(manual_state = 'NORMAL' AND temporary_unavailable_reason IS NULL) OR (manual_state = 'TEMPORARILY_DISABLED' AND temporary_unavailable_reason IS NOT NULL AND btrim(temporary_unavailable_reason) <> '')");
+                    table.CheckConstraint("ck_devices_version_positive", "version > 0");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "outbox_messages",
                 schema: "device_rental",
                 columns: table => new
@@ -88,6 +117,54 @@ namespace DeviceRental.Infrastructure.Persistence.Migrations
                     table.CheckConstraint("ck_outbox_messages_time_order", "available_at >= created_at AND attempts >= 0 AND (locked_until IS NULL OR locked_until > created_at) AND (sending_started_at IS NULL OR (sending_started_at >= available_at AND sending_started_at < locked_until)) AND (processed_at IS NULL OR processed_at >= sending_started_at) AND (failed_at IS NULL OR failed_at >= sending_started_at) AND (canceled_at IS NULL OR canceled_at >= created_at) AND (payload_purged_at IS NULL OR payload_purged_at >= COALESCE(processed_at, canceled_at, failed_at))");
                 });
 
+            migrationBuilder.CreateTable(
+                name: "loans",
+                schema: "device_rental",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    device_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    borrower_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    borrowed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    due_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    policy_version_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    returned_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    returned_by_user_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    return_kind = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
+                    return_reason = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    version = table.Column<long>(type: "bigint", nullable: false, defaultValue: 1L)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_loans", x => x.id);
+                    table.CheckConstraint("ck_loans_id_nonzero", "id <> '00000000-0000-0000-0000-000000000000'::uuid");
+                    table.CheckConstraint("ck_loans_parties_nonzero", "device_id <> '00000000-0000-0000-0000-000000000000'::uuid AND borrower_id <> '00000000-0000-0000-0000-000000000000'::uuid AND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid");
+                    table.CheckConstraint("ck_loans_return_tuple", "(returned_at IS NULL AND returned_by_user_id IS NULL AND return_kind IS NULL AND return_reason IS NULL) OR (returned_at IS NOT NULL AND returned_by_user_id IS NOT NULL AND returned_by_user_id <> '00000000-0000-0000-0000-000000000000'::uuid AND return_kind IN ('SELF', 'FORCED') AND ((return_kind = 'SELF' AND returned_by_user_id = borrower_id AND return_reason IS NULL) OR (return_kind = 'FORCED' AND return_reason IS NOT NULL AND btrim(return_reason) <> '')))");
+                    table.CheckConstraint("ck_loans_time_order", "due_at > borrowed_at AND (returned_at IS NULL OR returned_at >= borrowed_at)");
+                    table.CheckConstraint("ck_loans_version_positive", "version > 0");
+                    table.ForeignKey(
+                        name: "FK_loans_devices_device_id",
+                        column: x => x.device_id,
+                        principalSchema: "device_rental",
+                        principalTable: "devices",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_loans_users_borrower_id",
+                        column: x => x.borrower_id,
+                        principalSchema: "device_rental",
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_loans_users_returned_by_user_id",
+                        column: x => x.returned_by_user_id,
+                        principalSchema: "device_rental",
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "ix_audit_events_actor_user_id_created_at",
                 schema: "device_rental",
@@ -119,6 +196,51 @@ namespace DeviceRental.Infrastructure.Persistence.Migrations
                 columns: new[] { "subject_type", "subject_id", "created_at" });
 
             migrationBuilder.CreateIndex(
+                name: "ix_devices_archive_tier",
+                schema: "device_rental",
+                table: "devices",
+                columns: new[] { "is_archived", "tier" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_devices_manual_state",
+                schema: "device_rental",
+                table: "devices",
+                column: "manual_state");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_devices_asset_number",
+                schema: "device_rental",
+                table: "devices",
+                column: "asset_number",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_loans_borrower_borrowed_at",
+                schema: "device_rental",
+                table: "loans",
+                columns: new[] { "borrower_id", "borrowed_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_loans_due_returned",
+                schema: "device_rental",
+                table: "loans",
+                columns: new[] { "due_at", "returned_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_loans_returned_by_user_id",
+                schema: "device_rental",
+                table: "loans",
+                column: "returned_by_user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_loans_open_device",
+                schema: "device_rental",
+                table: "loans",
+                column: "device_id",
+                unique: true,
+                filter: "returned_at IS NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_outbox_messages_aggregate_version",
                 schema: "device_rental",
                 table: "outbox_messages",
@@ -146,7 +268,15 @@ namespace DeviceRental.Infrastructure.Persistence.Migrations
                 schema: "device_rental");
 
             migrationBuilder.DropTable(
+                name: "loans",
+                schema: "device_rental");
+
+            migrationBuilder.DropTable(
                 name: "outbox_messages",
+                schema: "device_rental");
+
+            migrationBuilder.DropTable(
+                name: "devices",
                 schema: "device_rental");
         }
     }

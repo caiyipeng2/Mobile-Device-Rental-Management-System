@@ -1,0 +1,13 @@
+@page
+@model ClosedModel
+@{
+    ViewData["Title"] = "系统暂时关闭";
+}
+
+<section class="closed-page" aria-labelledby="closed-title">
+    <p class="eyebrow">服务开放时间</p>
+    <h1 id="closed-title">现在不是借用时段</h1>
+    <p>设备查询、借用和账户操作每天 09:00–19:00（上海时间）开放。</p>
+    <p class="closed-next">下次开放：<strong>@Model.NextOpenLocal</strong></p>
+    <a class="button button-primary" asp-page="/Index">返回设备台账</a>
+</section>

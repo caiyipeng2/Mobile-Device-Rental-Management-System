@@ -1,0 +1,22 @@
+@page
+@model LoginModel
+@{
+    ViewData["Title"] = "登录";
+}
+
+<section class="auth-page" aria-labelledby="login-title">
+    <div class="auth-card">
+        <p class="eyebrow">内部账户</p>
+        <h1 id="login-title">登录设备台账</h1>
+        <p class="page-description">使用已验证的公司邮箱登录。</p>
+        <form method="post" class="auth-form">
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+            <label asp-for="Input.Email"></label>
+            <input asp-for="Input.Email" autocomplete="email" inputmode="email" />
+            <label asp-for="Input.Password"></label>
+            <input asp-for="Input.Password" autocomplete="current-password" />
+            <button class="button button-primary" type="submit">登录</button>
+        </form>
+        <p class="auth-link"><a asp-page="/Account/Register">注册新账户</a></p>
+    </div>
+</section>

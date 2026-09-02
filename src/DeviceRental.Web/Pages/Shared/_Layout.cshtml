@@ -22,6 +22,7 @@
             <div class="nav-links">
                 <a asp-page="/Index" aria-current="@(ViewContext.RouteData.Values["page"]?.ToString() == "/Index" ? "page" : null)">设备</a>
                 <a asp-page="/Privacy">借用说明</a>
+                <a asp-page="/Account/Login">登录</a>
             </div>
             <span class="nav-user"><strong>@currentUser.DisplayName</strong><small>@currentUser.RoleDisplayName</small></span>
         </nav>

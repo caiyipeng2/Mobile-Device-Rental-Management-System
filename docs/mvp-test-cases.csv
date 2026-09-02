@@ -1,10 +1,10 @@
 MvpCaseId,ImplementationTask,PrimaryNamedTest,Status
-AUTH-001,Task 5,RegistrationTests,Planned
+AUTH-001,Task 5,AccountApplicationServiceTests,Passing
 AUTH-002,Task 5,RegistrationTests,Planned
 AUTH-003,Task 5,EmailVerificationTests,Planned
 AUTH-004,Task 5,RegistrationTests,Planned
 AUTH-005,Task 5,PasswordResetTests,Planned
-AUTH-006,Task 5,AuthenticationSecurityTests,Planned
+AUTH-006,Task 5,AccountApplicationServiceTests,Passing
 AUTH-007,Task 5,AuthenticationSessionTests,Planned
 AUTH-008,Task 5,AuthenticationSessionTests,Planned
 AUTH-009,Task 5,AuthenticationSecurityTests,Planned

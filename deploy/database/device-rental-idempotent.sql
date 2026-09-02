@@ -1,4 +1,4 @@
-﻿DO $EF$
+DO $EF$
 BEGIN
     IF NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'device_rental') THEN
         CREATE SCHEMA device_rental;
@@ -199,11 +199,12 @@ BEGIN
     END IF;
 END $EF$;
 COMMIT;
+
 START TRANSACTION;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE TABLE device_rental.audit_events (
         event_id uuid NOT NULL,
         actor_kind character varying(24) NOT NULL,
@@ -230,7 +231,34 @@ END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE TABLE device_rental.devices (
+        id uuid NOT NULL,
+        asset_number character varying(64) NOT NULL,
+        model_name character varying(200) NOT NULL,
+        tier character varying(8) NOT NULL,
+        image_id uuid NOT NULL,
+        manual_state character varying(32) NOT NULL,
+        temporary_unavailable_reason character varying(500),
+        is_archived boolean NOT NULL DEFAULT FALSE,
+        version bigint NOT NULL DEFAULT 1,
+        created_at timestamp with time zone NOT NULL,
+        updated_at timestamp with time zone NOT NULL,
+        CONSTRAINT "PK_devices" PRIMARY KEY (id),
+        CONSTRAINT ck_devices_id_nonzero CHECK (id <> '00000000-0000-0000-0000-000000000000'::uuid),
+        CONSTRAINT ck_devices_manual_state CHECK (manual_state IN ('NORMAL', 'TEMPORARILY_DISABLED')),
+        CONSTRAINT ck_devices_required_text CHECK (btrim(asset_number) <> '' AND btrim(model_name) <> ''),
+        CONSTRAINT ck_devices_tier CHECK (tier IN ('LOW', 'MID', 'HIGH')),
+        CONSTRAINT ck_devices_timestamps CHECK (updated_at >= created_at),
+        CONSTRAINT ck_devices_unavailable_reason CHECK ((manual_state = 'NORMAL' AND temporary_unavailable_reason IS NULL) OR (manual_state = 'TEMPORARILY_DISABLED' AND temporary_unavailable_reason IS NOT NULL AND btrim(temporary_unavailable_reason) <> '')),
+        CONSTRAINT ck_devices_version_positive CHECK (version > 0)
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE TABLE device_rental.outbox_messages (
         event_id uuid NOT NULL,
         dedupe_key character varying(256) NOT NULL,
@@ -270,65 +298,142 @@ END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE TABLE device_rental.loans (
+        id uuid NOT NULL,
+        device_id uuid NOT NULL,
+        borrower_id uuid NOT NULL,
+        borrowed_at timestamp with time zone NOT NULL,
+        due_at timestamp with time zone NOT NULL,
+        policy_version_id uuid NOT NULL,
+        returned_at timestamp with time zone,
+        returned_by_user_id uuid,
+        return_kind character varying(16),
+        return_reason character varying(1000),
+        version bigint NOT NULL DEFAULT 1,
+        CONSTRAINT "PK_loans" PRIMARY KEY (id),
+        CONSTRAINT ck_loans_id_nonzero CHECK (id <> '00000000-0000-0000-0000-000000000000'::uuid),
+        CONSTRAINT ck_loans_parties_nonzero CHECK (device_id <> '00000000-0000-0000-0000-000000000000'::uuid AND borrower_id <> '00000000-0000-0000-0000-000000000000'::uuid AND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid),
+        CONSTRAINT ck_loans_return_tuple CHECK ((returned_at IS NULL AND returned_by_user_id IS NULL AND return_kind IS NULL AND return_reason IS NULL) OR (returned_at IS NOT NULL AND returned_by_user_id IS NOT NULL AND returned_by_user_id <> '00000000-0000-0000-0000-000000000000'::uuid AND return_kind IN ('SELF', 'FORCED') AND ((return_kind = 'SELF' AND returned_by_user_id = borrower_id AND return_reason IS NULL) OR (return_kind = 'FORCED' AND return_reason IS NOT NULL AND btrim(return_reason) <> '')))),
+        CONSTRAINT ck_loans_time_order CHECK (due_at > borrowed_at AND (returned_at IS NULL OR returned_at >= borrowed_at)),
+        CONSTRAINT ck_loans_version_positive CHECK (version > 0),
+        CONSTRAINT "FK_loans_devices_device_id" FOREIGN KEY (device_id) REFERENCES device_rental.devices (id) ON DELETE RESTRICT,
+        CONSTRAINT "FK_loans_users_borrower_id" FOREIGN KEY (borrower_id) REFERENCES device_rental.users (id) ON DELETE RESTRICT,
+        CONSTRAINT "FK_loans_users_returned_by_user_id" FOREIGN KEY (returned_by_user_id) REFERENCES device_rental.users (id) ON DELETE RESTRICT
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE INDEX ix_audit_events_actor_user_id_created_at ON device_rental.audit_events (actor_user_id, created_at);
     END IF;
 END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE INDEX ix_audit_events_correlation_id ON device_rental.audit_events (correlation_id);
     END IF;
 END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE INDEX ix_audit_events_created_at_event_id ON device_rental.audit_events (created_at, event_id);
     END IF;
 END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE INDEX ix_audit_events_event_type_created_at ON device_rental.audit_events (event_type, created_at);
     END IF;
 END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE INDEX ix_audit_events_subject_created_at ON device_rental.audit_events (subject_type, subject_id, created_at);
     END IF;
 END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE INDEX ix_devices_archive_tier ON device_rental.devices (is_archived, tier);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE INDEX ix_devices_manual_state ON device_rental.devices (manual_state);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE UNIQUE INDEX ux_devices_asset_number ON device_rental.devices (asset_number);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE INDEX ix_loans_borrower_borrowed_at ON device_rental.loans (borrower_id, borrowed_at);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE INDEX ix_loans_due_returned ON device_rental.loans (due_at, returned_at);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE INDEX "IX_loans_returned_by_user_id" ON device_rental.loans (returned_by_user_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
+    CREATE UNIQUE INDEX ux_loans_open_device ON device_rental.loans (device_id) WHERE returned_at IS NULL;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE INDEX ix_outbox_messages_aggregate_version ON device_rental.outbox_messages (aggregate_type, aggregate_id, aggregate_version);
     END IF;
 END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE INDEX ix_outbox_messages_correlation_id ON device_rental.outbox_messages (correlation_id);
     END IF;
 END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     CREATE UNIQUE INDEX ux_outbox_messages_dedupe_key ON device_rental.outbox_messages (dedupe_key);
     END IF;
 END $EF$;
 
 DO $EF$
 BEGIN
-    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260901110222_AuditAndOutbox') THEN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     INSERT INTO device_rental."__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-    VALUES ('20260901110222_AuditAndOutbox', '10.0.11');
+    VALUES ('20260902095703_AuditAndOutbox', '10.0.11');
     END IF;
 END $EF$;
 COMMIT;
