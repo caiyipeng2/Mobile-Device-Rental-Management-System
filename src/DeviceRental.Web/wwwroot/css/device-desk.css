@@ -34,6 +34,9 @@ a { color: inherit; }
 .nav-links a[aria-current="page"] { color: var(--desk-primary); border-bottom-color: var(--desk-primary); }
 .nav-links a:hover { color: var(--desk-primary-dark); background: #f6f8fe; }
 .nav-user { margin-left: auto; text-align: right; font-size: 13px; }
+.nav-logout-form { display: flex; align-items: center; }
+.nav-logout { border: 0; border-bottom: 2px solid transparent; background: transparent; color: #475467; cursor: pointer; font-size: 14px; font-weight: 650; padding: 0 10px; min-height: 58px; }
+.nav-logout:hover { color: var(--desk-primary-dark); background: #f6f8fe; }
 .main-content { width: min(1280px, 100%); margin: 0 auto; padding: 30px 32px 44px; }
 .site-footer { border-top: 1px solid var(--desk-line); min-height: 56px; background: #fff; color: var(--desk-muted); font-size: 12px; display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 12px max(32px, calc((100% - 1216px) / 2)); }
 

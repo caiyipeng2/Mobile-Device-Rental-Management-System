@@ -28,7 +28,16 @@
                     <a asp-page="/Admin/Devices">设备维护</a>
                     <a asp-page="/Admin/Policy">借期策略</a>
                 }
-                <a asp-page="/Account/Login">登录</a>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <form method="post" asp-page="/Account/Logout" class="nav-logout-form">
+                        <button type="submit" class="nav-logout">退出</button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-page="/Account/Login">登录</a>
+                }
             </div>
             <span class="nav-user"><strong>@currentUser.DisplayName</strong><small>@currentUser.RoleDisplayName</small></span>
         </nav>
