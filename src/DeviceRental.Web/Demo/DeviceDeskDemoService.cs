@@ -195,6 +195,12 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
             return DeviceDeskOperationResult.Failure("资产编号和型号名称均为必填项。");
         }
 
+        var normalizedImageReference = imageReference?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedImageReference))
+        {
+            return DeviceDeskOperationResult.Failure("新增设备时必须提供展示图引用。");
+        }
+
         if (normalizedTier is not ("低端" or "中端" or "高端"))
         {
             return DeviceDeskOperationResult.Failure("档位必须选择低端、中端或高端。");
@@ -219,7 +225,7 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
                 normalizedTier,
                 DeviceDeskAvailability.Available,
                 tierColor,
-                imageReference: imageReference?.Trim()));
+                imageReference: normalizedImageReference));
             return DeviceDeskOperationResult.Success($"已新增设备 {normalizedModel}（{normalizedAsset}）。");
         }
     }

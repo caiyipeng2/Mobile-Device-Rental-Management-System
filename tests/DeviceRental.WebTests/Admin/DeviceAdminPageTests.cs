@@ -29,6 +29,37 @@ public sealed class DeviceAdminPageTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     [Trait("Category", "Web")]
     [Trait("Requirement", "REQ-DEV-003")]
+    public async Task Administrator_must_supply_a_display_image_reference()
+    {
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+        });
+        using var page = await client.GetAsync("/Admin/Devices", TestContext.Current.CancellationToken);
+        var token = ExtractToken(await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        using var response = await client.PostAsync(
+            "/Admin/Devices?handler=Create",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["assetNumber"] = "QA-NO-IMAGE",
+                ["modelName"] = "OnePlus 13",
+                ["tier"] = "中端",
+            }),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+        using var after = await client.GetAsync("/Admin/Devices", TestContext.Current.CancellationToken);
+        var html = WebUtility.HtmlDecode(
+            await after.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("必须提供展示图引用", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("QA-NO-IMAGE", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Web")]
+    [Trait("Requirement", "REQ-DEV-003")]
     public async Task Administrator_can_register_a_new_device()
     {
         using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
