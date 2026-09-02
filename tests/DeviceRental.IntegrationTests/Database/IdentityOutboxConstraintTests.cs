@@ -868,7 +868,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             var sqlState = exception is PostgresException postgres
                 ? postgres.SqlState
                 : "none";
-            Console.Error.WriteLine($"SAFE-SQL|{exception.GetType().Name}|{sqlState}");
+            WriteSafeDiagnostic($"SAFE-SQL|{exception.GetType().Name}|{sqlState}");
             throw;
         }
     }
@@ -911,8 +911,31 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
                 Path.Combine(directory, "connection-diagnostics.txt"),
                 $"{operation}|{exception.GetType().Name}|{sqlState}{Environment.NewLine}",
                 cancellationToken);
-            Console.Error.WriteLine($"SAFE-DIAGNOSTIC|{operation}|{exception.GetType().Name}|{sqlState}");
+            WriteSafeDiagnostic($"SAFE-DIAGNOSTIC|{operation}|{exception.GetType().Name}|{sqlState}");
             throw;
+        }
+    }
+
+    private static void WriteSafeDiagnostic(string line)
+    {
+        Console.Error.WriteLine(line);
+        var summaryPath = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
+        if (string.IsNullOrWhiteSpace(summaryPath))
+        {
+            return;
+        }
+
+        try
+        {
+            File.AppendAllText(summaryPath, line + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+            // Diagnostics must never mask the underlying test result.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Diagnostics must never mask the underlying test result.
         }
     }
 
@@ -939,7 +962,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
             await File.AppendAllTextAsync(
                 Path.Combine(directory, "exception-diagnostics.txt"),
                 $"{operation}|{exception.GetType().Name}|{sqlState}{Environment.NewLine}");
-            Console.Error.WriteLine($"SAFE-DIAGNOSTIC|{operation}|{exception.GetType().Name}|{sqlState}");
+            WriteSafeDiagnostic($"SAFE-DIAGNOSTIC|{operation}|{exception.GetType().Name}|{sqlState}");
             throw;
         }
 
@@ -949,7 +972,7 @@ public sealed class IdentityOutboxConstraintTests(PostgresTestEnvironment databa
         await File.AppendAllTextAsync(
             Path.Combine(noExceptionDirectory, "exception-diagnostics.txt"),
             $"{operation}|ExpectedExceptionNotRaised|none{Environment.NewLine}");
-        Console.Error.WriteLine($"SAFE-DIAGNOSTIC|{operation}|ExpectedExceptionNotRaised|none");
+        WriteSafeDiagnostic($"SAFE-DIAGNOSTIC|{operation}|ExpectedExceptionNotRaised|none");
         throw new InvalidOperationException(
             $"Expected PostgreSQL exception was not raised in {operation}.");
     }

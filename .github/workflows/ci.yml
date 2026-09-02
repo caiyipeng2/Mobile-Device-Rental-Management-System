@@ -303,6 +303,15 @@ jobs:
               }
           }
 
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY) -and
+              (Test-Path -LiteralPath $env:GITHUB_STEP_SUMMARY -PathType Leaf)) {
+              foreach ($line in Get-Content -LiteralPath $env:GITHUB_STEP_SUMMARY) {
+                  if ($line -match '^SAFE-(?:DIAGNOSTIC|SQL)\|[A-Za-z0-9_.:-]+\|[A-Za-z0-9_.:-]+(?:\|[A-Za-z0-9_.:-]+)?$') {
+                      Write-Output "::error title=Database safe diagnostic::$line"
+                  }
+              }
+          }
+
 
       - name: Upload integration-test evidence
         if: always()
