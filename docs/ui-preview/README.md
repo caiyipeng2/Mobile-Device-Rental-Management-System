@@ -1,6 +1,6 @@
 # 测试设备台账界面预览
 
-> 状态：v1.0 已批准界面基线。预览使用合成数据，不包含真实员工、邮箱或资产信息；当前 Razor MVP 已按该基线实现设备操作台。
+> 状态：v1.0 已批准界面基线。预览使用合成数据，不包含真实员工、邮箱或资产信息；当前 Razor MVP 已按该基线实现设备操作台与账户入口。
 
 ## 快速查看
 
@@ -13,6 +13,10 @@
 - [UI 对齐后移动实拍](polished/device-desk-mobile.png)
 - [UI 对齐后管理员桌面实拍](polished/admin-devices-desktop.png)
 - [UI 对齐后管理员移动实拍](polished/admin-devices-mobile.png)
+- [账户入口桌面实拍](polished/auth-login-desktop.png)
+- [账户入口移动实拍](polished/auth-login-mobile.png)
+- [注册账户桌面实拍](polished/auth-register-desktop.png)
+- [找回密码移动实拍](polished/auth-forgot-mobile.png)
 
 本地浏览地址：`http://127.0.0.1:4173/docs/ui-preview/`
 

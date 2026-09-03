@@ -1,0 +1,8 @@
+@{
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+}
+<nav class="auth-tabs" aria-label="账户入口">
+    <a class="@(currentPage == "/Account/Login" ? "is-active" : null)" asp-page="/Account/Login" aria-current="@(currentPage == "/Account/Login" ? "page" : null)">登录</a>
+    <a class="@(currentPage == "/Account/Register" ? "is-active" : null)" asp-page="/Account/Register" aria-current="@(currentPage == "/Account/Register" ? "page" : null)">注册</a>
+    <a class="@(currentPage == "/Account/ForgotPassword" ? "is-active" : null)" asp-page="/Account/ForgotPassword" aria-current="@(currentPage == "/Account/ForgotPassword" ? "page" : null)">找回密码</a>
+</nav>

@@ -5,6 +5,7 @@
 }
 
 <section class="auth-page" aria-labelledby="verify-email-title">
+    <partial name="_AuthAside" />
     <div class="auth-card">
         <p class="eyebrow">账户安全</p>
         <h1 id="verify-email-title">验证公司邮箱</h1>
@@ -23,6 +24,8 @@
                 <button class="button button-primary" type="submit">重新发送验证邮件</button>
             </form>
         }
-        <p class="auth-link"><a asp-page="/Account/Login">返回登录</a></p>
+        <div class="auth-links">
+            <p class="auth-link"><a asp-page="/Account/Login">返回登录</a></p>
+        </div>
     </div>
 </section>

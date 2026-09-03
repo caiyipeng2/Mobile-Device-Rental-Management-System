@@ -5,7 +5,9 @@
 }
 
 <section class="auth-page" aria-labelledby="register-title">
+    <partial name="_AuthAside" />
     <div class="auth-card">
+        <partial name="_AuthTabs" />
         <p class="eyebrow">内部账户</p>
         <h1 id="register-title">注册设备台账账户</h1>
         <p class="page-description">使用公司邮箱注册。完成邮箱验证后即可登录。</p>
@@ -27,6 +29,8 @@
             <p class="notice notice-success" role="status">@Model.ResultMessage</p>
             <p class="auth-link"><a asp-page="/Account/VerifyEmail">重新发送验证邮件</a></p>
         }
-        <p class="auth-link"><a asp-page="/Account/Login">已有账户，去登录</a></p>
+        <div class="auth-links">
+            <p class="auth-link"><a asp-page="/Account/Login">已有账户，去登录</a></p>
+        </div>
     </div>
 </section>

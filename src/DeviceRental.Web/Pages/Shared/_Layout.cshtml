@@ -1,6 +1,8 @@
 @inject DemoCurrentUserContext DemoUserContext
 @{
     var currentUser = DemoUserContext.GetCurrentUser(User);
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+    var isAuthPage = currentPage is "/Account/Login" or "/Account/Register" or "/Account/ForgotPassword" or "/Account/VerifyEmail" or "/Account/ResetPassword";
 }
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -11,7 +13,7 @@
     <link rel="stylesheet" href="/css/app.css" />
     <link rel="stylesheet" href="/css/device-desk.css" />
 </head>
-<body>
+<body class="@(isAuthPage ? "auth-shell" : null)">
     <a class="skip-link" href="#main-content">跳至主要内容</a>
     <header class="site-header">
         <nav class="site-nav" aria-label="主导航">

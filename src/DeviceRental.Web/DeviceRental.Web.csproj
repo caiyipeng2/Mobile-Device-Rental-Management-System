@@ -5,4 +5,8 @@
     <ProjectReference Include="..\DeviceRental.Infrastructure\DeviceRental.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -5,7 +5,9 @@
 }
 
 <section class="auth-page" aria-labelledby="login-title">
+    <partial name="_AuthAside" />
     <div class="auth-card">
+        <partial name="_AuthTabs" />
         <p class="eyebrow">内部账户</p>
         <h1 id="login-title">登录设备台账</h1>
         <p class="page-description">使用已验证的公司邮箱登录。</p>
@@ -17,7 +19,9 @@
             <input asp-for="Input.Password" autocomplete="current-password" />
             <button class="button button-primary" type="submit">登录</button>
         </form>
-        <p class="auth-link"><a asp-page="/Account/Register">注册新账户</a></p>
-        <p class="auth-link"><a asp-page="/Account/ForgotPassword">忘记密码</a></p>
+        <div class="auth-links">
+            <p class="auth-link"><a asp-page="/Account/Register">注册新账户</a></p>
+            <p class="auth-link"><a asp-page="/Account/ForgotPassword">忘记密码</a></p>
+        </div>
     </div>
 </section>

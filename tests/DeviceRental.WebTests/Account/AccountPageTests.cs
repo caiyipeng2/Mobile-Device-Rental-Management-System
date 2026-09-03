@@ -42,5 +42,7 @@ public sealed class AccountPageTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains(heading, html, StringComparison.Ordinal);
         Assert.Contains("__RequestVerificationToken", html, StringComparison.Ordinal);
+        Assert.Contains("auth-aside", html, StringComparison.Ordinal);
+        Assert.Contains("auth-card", html, StringComparison.Ordinal);
     }
 }
