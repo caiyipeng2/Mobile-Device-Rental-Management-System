@@ -54,5 +54,5 @@
 - Modify: `docs/traceability.csv`
 - Modify: `eng/Verify-MigrationArtifact.ps1` only if the model requires a migration.
 
-- [x] Run unit and Web checks; PostgreSQL integration and solution-build checks remain the final verification gate for this patch.
-- [ ] Commit and push the completed account workflow to `codex/mobile-device-rental-system`.
+- [x] Run full unit, Web, PostgreSQL integration, migration, and solution-build checks.
+- [x] Commit and push the completed account workflow to `codex/mobile-device-rental-system`.
