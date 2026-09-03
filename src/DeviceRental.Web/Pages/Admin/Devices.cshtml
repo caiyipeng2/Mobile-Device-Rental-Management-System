@@ -51,7 +51,21 @@
                 <tbody>
                 @foreach (var device in Model.Devices)
                 {
-                    <tr><td><strong>@device.ModelName</strong></td><td><code>@device.AssetNumber</code></td><td>@device.Tier</td><td>@(device.ImageReference ?? "未设置")</td></tr>
+                    <tr>
+                        <td><div class="device-name"><span class="admin-device-dot" aria-hidden="true"></span><strong>@device.ModelName</strong></div></td>
+                        <td><code>@device.AssetNumber</code></td>
+                        <td>@device.Tier</td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(device.ImageReference))
+                            {
+                                <img class="admin-thumb" src="@device.ImageReference" alt="@device.ModelName 展示图" loading="lazy" />
+                            }
+                            else
+                            {
+                                <span class="muted">未上传</span>
+                            }
+                        </td>
+                    </tr>
                 }
                 </tbody>
             </table>

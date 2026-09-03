@@ -215,9 +215,8 @@ app.MapGet("/devices/{deviceId:guid}/image", async (
     httpContext.Response.ContentLength = metadata.ByteLength;
     return Results.Stream(image, metadata.ContentType, enableRangeProcessing: false);
 });
-app.MapStaticAssets();
-app.MapRazorPages()
-   .WithStaticAssets();
+app.UseStaticFiles();
+app.MapRazorPages();
 
 app.Run();
 

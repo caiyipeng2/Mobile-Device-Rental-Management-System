@@ -84,7 +84,17 @@
             {
                 var isMine = device.Availability == DeviceDeskAvailability.Borrowed && device.BorrowerName == Model.CurrentUser.DisplayName;
                 <tr>
-                    <td><div class="device-name"><span class="phone-art" style="--tier-color:@device.TierColor" aria-hidden="true"></span><span><strong>@device.ModelName</strong><small>@device.Tier</small></span></div></td>
+                    <td><div class="device-name">
+                        @if (!string.IsNullOrWhiteSpace(device.ImageReference))
+                        {
+                            <img class="device-thumb" src="@device.ImageReference" alt="@device.ModelName 展示图" loading="lazy" />
+                        }
+                        else
+                        {
+                            <span class="phone-art" style="--tier-color:@device.TierColor" aria-hidden="true"></span>
+                        }
+                        <span><strong>@device.ModelName</strong><small>@device.Tier</small></span>
+                    </div></td>
                     <td><code>@device.AssetNumber</code></td>
                     <td><span class="status status-@device.Availability.ToString().ToLowerInvariant()"><span aria-hidden="true"></span>@device.StatusLabel</span></td>
                     <td>
@@ -162,7 +172,17 @@
     {
         var isMine = device.Availability == DeviceDeskAvailability.Borrowed && device.BorrowerName == Model.CurrentUser.DisplayName;
         <article class="device-card" style="--tier-color:@device.TierColor">
-            <div class="device-card-heading"><span class="phone-art" aria-hidden="true"></span><span><strong>@device.ModelName</strong><small>@device.AssetNumber · @device.Tier</small></span><span class="status status-@device.Availability.ToString().ToLowerInvariant()"><span aria-hidden="true"></span>@device.StatusLabel</span></div>
+            <div class="device-card-heading">
+                @if (!string.IsNullOrWhiteSpace(device.ImageReference))
+                {
+                    <img class="device-thumb" src="@device.ImageReference" alt="@device.ModelName 展示图" loading="lazy" />
+                }
+                else
+                {
+                    <span class="phone-art" aria-hidden="true"></span>
+                }
+                <span><strong>@device.ModelName</strong><small>@device.AssetNumber · @device.Tier</small></span><span class="status status-@device.Availability.ToString().ToLowerInvariant()"><span aria-hidden="true"></span>@device.StatusLabel</span>
+            </div>
             <p>@(device.Availability == DeviceDeskAvailability.Borrowed ? $"{device.BorrowerName}{(isMine ? "（本人）" : "")} · {device.DueAtUtc?.ToLocalTime():MM-dd HH:mm} 归还" : device.Availability == DeviceDeskAvailability.Unavailable ? device.UnavailableReason : "可立即借用，最长借期 24 小时")</p>
             @if (device.Availability == DeviceDeskAvailability.Available)
             {

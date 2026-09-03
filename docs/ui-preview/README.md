@@ -9,6 +9,10 @@
 - [总览页面](overview.html)
 - [Razor MVP 桌面实拍](device-desk-desktop.png)
 - [Razor MVP 移动实拍](device-desk-mobile.png)
+- [UI 对齐后桌面实拍](polished/device-desk-desktop.png)
+- [UI 对齐后移动实拍](polished/device-desk-mobile.png)
+- [UI 对齐后管理员桌面实拍](polished/admin-devices-desktop.png)
+- [UI 对齐后管理员移动实拍](polished/admin-devices-mobile.png)
 
 本地浏览地址：`http://127.0.0.1:4173/docs/ui-preview/`
 
