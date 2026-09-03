@@ -155,6 +155,105 @@ public sealed class AccountApplicationServiceTests
         Assert.True(store.FailureStateWasReset);
     }
 
+    [Fact]
+    [Trait("Requirement", "REQ-AUTH-003")]
+    public async Task RequestEmailVerificationAsync_NormalizesEmailAndReturnsAcceptedToken()
+    {
+        var store = new FakeAccountStore
+        {
+            VerificationToken = new AccountToken(
+                Guid.NewGuid(),
+                "alice@example.com",
+                "email-token",
+                DateTimeOffset.Parse("2026-09-02T10:00:00Z")),
+        };
+        var service = new AccountApplicationService(_corporateEmailPolicy, store);
+
+        var result = await service.RequestEmailVerificationAsync(
+            " Alice@Example.COM ",
+            DateTimeOffset.Parse("2026-09-01T10:00:00Z"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(EmailVerificationRequestOutcome.Accepted, result.Outcome);
+        Assert.Equal("alice@example.com", store.TokenRequestedFor);
+        Assert.Equal("email-token", result.Token!.Value);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-AUTH-003")]
+    public async Task VerifyEmailAsync_RejectsBlankTokenWithoutTouchingTheStore()
+    {
+        var store = new FakeAccountStore();
+        var service = new AccountApplicationService(_corporateEmailPolicy, store);
+
+        var result = await service.VerifyEmailAsync(
+            "alice@example.com",
+            " ",
+            DateTimeOffset.UtcNow,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(EmailVerificationOutcome.InvalidToken, result.Outcome);
+        Assert.Null(store.VerifiedEmail);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-AUTH-005")]
+    public async Task RequestPasswordResetAsync_UsesGenericAcceptedResponseForUnknownAccount()
+    {
+        var store = new FakeAccountStore();
+        var service = new AccountApplicationService(_corporateEmailPolicy, store);
+
+        var result = await service.RequestPasswordResetAsync(
+            "missing@example.com",
+            DateTimeOffset.Parse("2026-09-01T10:00:00Z"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(PasswordResetRequestOutcome.Accepted, result.Outcome);
+        Assert.Null(result.Token);
+        Assert.Equal("missing@example.com", store.TokenRequestedFor);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-AUTH-005")]
+    public async Task ResetPasswordAsync_ValidatesPasswordBeforeConsumingToken()
+    {
+        var store = new FakeAccountStore();
+        var service = new AccountApplicationService(_corporateEmailPolicy, store);
+
+        var result = await service.ResetPasswordAsync(
+            "alice@example.com",
+            "reset-token",
+            "short",
+            DateTimeOffset.UtcNow,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(PasswordResetOutcome.ValidationFailed, result.Outcome);
+        Assert.Contains(result.Errors, error => error.Field == "password");
+        Assert.Null(store.ResetEmail);
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-AUTH-005")]
+    public async Task ResetPasswordAsync_NormalizesEmailAndReturnsStoreOutcome()
+    {
+        var store = new FakeAccountStore
+        {
+            ResetResult = PasswordResetResult.Reset(),
+        };
+        var service = new AccountApplicationService(_corporateEmailPolicy, store);
+
+        var result = await service.ResetPasswordAsync(
+            " Alice@Example.COM ",
+            "reset-token",
+            "correct horse battery staple",
+            DateTimeOffset.Parse("2026-09-01T10:00:00Z"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(PasswordResetOutcome.Reset, result.Outcome);
+        Assert.Equal("alice@example.com", store.ResetEmail);
+        Assert.Equal("reset-token", store.ResetToken);
+    }
+
     private sealed class FakeAccountStore : IAccountStore
     {
         public AccountSnapshot? Account { get; init; }
@@ -168,6 +267,20 @@ public sealed class AccountApplicationServiceTests
         public Guid? FailureRecordedFor { get; private set; }
 
         public bool FailureStateWasReset { get; private set; }
+
+        public AccountToken? VerificationToken { get; init; }
+
+        public AccountToken? PasswordResetToken { get; init; }
+
+        public PasswordResetResult ResetResult { get; init; } = PasswordResetResult.InvalidToken();
+
+        public string? TokenRequestedFor { get; private set; }
+
+        public string? VerifiedEmail { get; private set; }
+
+        public string? ResetEmail { get; private set; }
+
+        public string? ResetToken { get; private set; }
 
         public Task<AccountSnapshot?> FindByNormalizedEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default) =>
             Task.FromResult(Account);
@@ -201,6 +314,46 @@ public sealed class AccountApplicationServiceTests
         {
             FailureStateWasReset = true;
             return Task.CompletedTask;
+        }
+
+        public Task<AccountToken?> GenerateEmailVerificationTokenAsync(
+            string normalizedEmail,
+            DateTimeOffset effectiveNowUtc,
+            CancellationToken cancellationToken = default)
+        {
+            TokenRequestedFor = normalizedEmail;
+            return Task.FromResult(VerificationToken);
+        }
+
+        public Task<EmailVerificationResult> VerifyEmailAsync(
+            string normalizedEmail,
+            string token,
+            DateTimeOffset effectiveNowUtc,
+            CancellationToken cancellationToken = default)
+        {
+            VerifiedEmail = normalizedEmail;
+            return Task.FromResult(EmailVerificationResult.Verified());
+        }
+
+        public Task<AccountToken?> GeneratePasswordResetTokenAsync(
+            string normalizedEmail,
+            DateTimeOffset effectiveNowUtc,
+            CancellationToken cancellationToken = default)
+        {
+            TokenRequestedFor = normalizedEmail;
+            return Task.FromResult(PasswordResetToken);
+        }
+
+        public Task<PasswordResetResult> ResetPasswordAsync(
+            string normalizedEmail,
+            string token,
+            string newPassword,
+            DateTimeOffset effectiveNowUtc,
+            CancellationToken cancellationToken = default)
+        {
+            ResetEmail = normalizedEmail;
+            ResetToken = token;
+            return Task.FromResult(ResetResult);
         }
     }
 }

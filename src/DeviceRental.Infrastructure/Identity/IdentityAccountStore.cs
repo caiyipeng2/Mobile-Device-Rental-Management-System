@@ -113,6 +113,109 @@ public sealed class IdentityAccountStore(
         }
     }
 
+    public async Task<AccountToken?> GenerateEmailVerificationTokenAsync(
+        string normalizedEmail,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var user = await userManager.FindByEmailAsync(normalizedEmail);
+        if (user is null || user.EmailConfirmed || !user.IsActive)
+        {
+            return null;
+        }
+
+        // Rotating the stamp makes a resent verification link invalidate any older link.
+        await userManager.UpdateSecurityStampAsync(user);
+        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+        return new AccountToken(
+            user.Id,
+            user.Email ?? normalizedEmail,
+            token,
+            effectiveNowUtc.ToUniversalTime().AddHours(24));
+    }
+
+    public async Task<EmailVerificationResult> VerifyEmailAsync(
+        string normalizedEmail,
+        string token,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var user = await userManager.FindByEmailAsync(normalizedEmail);
+        if (user is null)
+        {
+            return EmailVerificationResult.InvalidToken();
+        }
+
+        if (user.EmailConfirmed)
+        {
+            return EmailVerificationResult.AlreadyVerified();
+        }
+
+        var verifiedAt = effectiveNowUtc.ToUniversalTime();
+        user.EmailVerifiedAt = verifiedAt;
+        user.UpdatedAt = verifiedAt;
+        var result = await userManager.ConfirmEmailAsync(user, token);
+        return result.Succeeded
+            ? EmailVerificationResult.Verified()
+            : EmailVerificationResult.InvalidToken();
+    }
+
+    public async Task<AccountToken?> GeneratePasswordResetTokenAsync(
+        string normalizedEmail,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var user = await userManager.FindByEmailAsync(normalizedEmail);
+        if (user is null || !user.IsActive)
+        {
+            return null;
+        }
+
+        // Only the most recently requested reset link remains valid.
+        await userManager.UpdateSecurityStampAsync(user);
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        return new AccountToken(
+            user.Id,
+            user.Email ?? normalizedEmail,
+            token,
+            effectiveNowUtc.ToUniversalTime().AddMinutes(30));
+    }
+
+    public async Task<PasswordResetResult> ResetPasswordAsync(
+        string normalizedEmail,
+        string token,
+        string newPassword,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var user = await userManager.FindByEmailAsync(normalizedEmail);
+        if (user is null || !user.IsActive)
+        {
+            return PasswordResetResult.InvalidToken();
+        }
+
+        var result = await userManager.ResetPasswordAsync(user, token, newPassword);
+        if (!result.Succeeded)
+        {
+            return result.Errors.Any(error =>
+                string.Equals(error.Code, nameof(IdentityErrorDescriber.InvalidToken), StringComparison.Ordinal))
+                ? PasswordResetResult.InvalidToken()
+                : PasswordResetResult.ValidationFailed(
+                    [new FieldValidationError("password", "PASSWORD_POLICY_INVALID")]);
+        }
+
+        user.AuthorizationVersion++;
+        user.UpdatedAt = effectiveNowUtc.ToUniversalTime();
+        var update = await userManager.UpdateAsync(user);
+        return update.Succeeded
+            ? PasswordResetResult.Reset()
+            : PasswordResetResult.InvalidToken();
+    }
+
     private async Task<AccountSnapshot> ToSnapshotAsync(ApplicationUser user)
     {
         var roles = await userManager.GetRolesAsync(user);

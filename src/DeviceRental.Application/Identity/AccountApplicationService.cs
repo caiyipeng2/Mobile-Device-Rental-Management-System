@@ -80,6 +80,86 @@ public sealed class AccountApplicationService(
         return SignInResult.Authenticated(account);
     }
 
+    public async Task<EmailVerificationRequestResult> RequestEmailVerificationAsync(
+        string? email,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = NormalizeAllowedEmail(email);
+        if (normalizedEmail is null)
+        {
+            return EmailVerificationRequestResult.Accepted(null);
+        }
+
+        var token = await accountStore.GenerateEmailVerificationTokenAsync(
+            normalizedEmail,
+            effectiveNowUtc.ToUniversalTime(),
+            cancellationToken);
+        return EmailVerificationRequestResult.Accepted(token);
+    }
+
+    public async Task<EmailVerificationResult> VerifyEmailAsync(
+        string? email,
+        string? token,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = NormalizeAllowedEmail(email);
+        if (normalizedEmail is null || string.IsNullOrWhiteSpace(token))
+        {
+            return EmailVerificationResult.InvalidToken();
+        }
+
+        return await accountStore.VerifyEmailAsync(
+            normalizedEmail,
+            token,
+            effectiveNowUtc.ToUniversalTime(),
+            cancellationToken);
+    }
+
+    public async Task<PasswordResetRequestResult> RequestPasswordResetAsync(
+        string? email,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default)
+    {
+        // The accepted result is intentionally identical for unknown and known accounts.
+        var normalizedEmail = NormalizeAllowedEmail(email);
+        var token = normalizedEmail is null
+            ? null
+            : await accountStore.GeneratePasswordResetTokenAsync(
+                normalizedEmail,
+                effectiveNowUtc.ToUniversalTime(),
+                cancellationToken);
+        return PasswordResetRequestResult.Accepted(token);
+    }
+
+    public async Task<PasswordResetResult> ResetPasswordAsync(
+        string? email,
+        string? token,
+        string? newPassword,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = NormalizeAllowedEmail(email);
+        var errors = ValidatePassword(newPassword);
+        if (normalizedEmail is null || string.IsNullOrWhiteSpace(token))
+        {
+            return PasswordResetResult.InvalidToken();
+        }
+
+        if (errors.Count != 0)
+        {
+            return PasswordResetResult.ValidationFailed(errors);
+        }
+
+        return await accountStore.ResetPasswordAsync(
+            normalizedEmail,
+            token,
+            newPassword!,
+            effectiveNowUtc.ToUniversalTime(),
+            cancellationToken);
+    }
+
     private List<FieldValidationError> ValidateRegistration(
         RegistrationInput input,
         out string? normalizedEmail,
@@ -114,4 +194,15 @@ public sealed class AccountApplicationService(
 
         return errors;
     }
+
+    private string? NormalizeAllowedEmail(string? email)
+    {
+        var decision = corporateEmailPolicy.Evaluate(email);
+        return decision.IsAllowed ? decision.NormalizedEmail : null;
+    }
+
+    private static List<FieldValidationError> ValidatePassword(string? password) =>
+        password is null || password.Length is < MinimumPasswordLength or > MaximumPasswordLength
+            ? [new FieldValidationError("password", "PASSWORD_LENGTH_INVALID")]
+            : [];
 }

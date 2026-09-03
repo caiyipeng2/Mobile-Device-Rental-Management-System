@@ -29,7 +29,36 @@ public interface IAccountStore
         CancellationToken cancellationToken = default);
 
     Task ResetFailedSignInAsync(Guid accountId, CancellationToken cancellationToken = default);
+
+    Task<AccountToken?> GenerateEmailVerificationTokenAsync(
+        string normalizedEmail,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default);
+
+    Task<EmailVerificationResult> VerifyEmailAsync(
+        string normalizedEmail,
+        string token,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default);
+
+    Task<AccountToken?> GeneratePasswordResetTokenAsync(
+        string normalizedEmail,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default);
+
+    Task<PasswordResetResult> ResetPasswordAsync(
+        string normalizedEmail,
+        string token,
+        string newPassword,
+        DateTimeOffset effectiveNowUtc,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record AccountToken(
+    Guid AccountId,
+    string Email,
+    string Value,
+    DateTimeOffset ExpiresAtUtc);
 
 public enum AccountCreationOutcome
 {

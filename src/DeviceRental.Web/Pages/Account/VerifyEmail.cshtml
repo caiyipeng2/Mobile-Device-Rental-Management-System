@@ -1,0 +1,28 @@
+@page
+@model VerifyEmailModel
+@{
+    ViewData["Title"] = "邮箱验证";
+}
+
+<section class="auth-page" aria-labelledby="verify-email-title">
+    <div class="auth-card">
+        <p class="eyebrow">账户安全</p>
+        <h1 id="verify-email-title">验证公司邮箱</h1>
+        @if (Model.ResultMessage is not null)
+        {
+            <p class="notice @(Model.IsSuccess ? "notice-success" : "notice-info")" role="status">@Model.ResultMessage</p>
+        }
+        @if (!Model.IsSuccess)
+        {
+            <p class="page-description">验证链接失效后，可重新发送验证邮件。</p>
+            <form method="post" asp-page-handler="Resend" class="auth-form">
+                <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+                <label asp-for="Input.Email"></label>
+                <input asp-for="Input.Email" autocomplete="email" inputmode="email" />
+                <span asp-validation-for="Input.Email" class="field-error"></span>
+                <button class="button button-primary" type="submit">重新发送验证邮件</button>
+            </form>
+        }
+        <p class="auth-link"><a asp-page="/Account/Login">返回登录</a></p>
+    </div>
+</section>

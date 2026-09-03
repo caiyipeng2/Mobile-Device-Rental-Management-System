@@ -25,6 +25,7 @@
         @if (Model.ResultMessage is not null)
         {
             <p class="notice notice-success" role="status">@Model.ResultMessage</p>
+            <p class="auth-link"><a asp-page="/Account/VerifyEmail">重新发送验证邮件</a></p>
         }
         <p class="auth-link"><a asp-page="/Account/Login">已有账户，去登录</a></p>
     </div>

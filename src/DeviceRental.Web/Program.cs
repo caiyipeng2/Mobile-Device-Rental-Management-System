@@ -8,6 +8,7 @@ using DeviceRental.Infrastructure.Devices;
 using DeviceRental.Web.Database;
 using DeviceRental.Web.Demo;
 using DeviceRental.Web.Health;
+using DeviceRental.Web.Identity;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -64,9 +65,15 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.Password.RequiredUniqueChars = 4;
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Tokens.EmailConfirmationTokenProvider = "EmailConfirmation";
+        options.Tokens.PasswordResetTokenProvider = "PasswordReset";
     })
     .AddRoles<Microsoft.AspNetCore.Identity.IdentityRole<Guid>>()
-    .AddEntityFrameworkStores<DeviceRentalDbContext>();
+    .AddEntityFrameworkStores<DeviceRentalDbContext>()
+    .AddTokenProvider<EmailConfirmationTokenProvider>("EmailConfirmation")
+    .AddTokenProvider<PasswordResetTokenProvider>("PasswordReset");
+builder.Services.Configure<EmailConfirmationTokenProviderOptions>(_ => { });
+builder.Services.Configure<PasswordResetTokenProviderOptions>(_ => { });
 builder.Services.AddScoped<IAccountStore, IdentityAccountStore>();
 builder.Services.AddScoped<IAccountApplicationService>(services =>
     new AccountApplicationService(

@@ -213,6 +213,7 @@
 ### 8.1 认证与会话 `[M]`
 
 - 覆盖 `NFR-SEC-001`、`NFR-SEC-002`、`NFR-SEC-006`。
+- 当前已落地的 `AccountApplicationServiceTests` 覆盖邮箱规范化、通用找回密码响应、邮箱验证无效令牌、密码长度校验和重置后应用层结果；Identity Provider 的真实邮件投递、限流和共享密钥环在 Outbox/预发布阶段执行。
 - 密码仅以合格慢哈希保存并验证参数升级；数据库转储和日志中不存在明文密码。
 - 登录限流、防账户枚举、会话固定、退出失效、密码重置令牌重放和邮箱验证绕过。
 - Cookie `Secure/HttpOnly/SameSite`、全站 HTTPS/HSTS、可信代理和 Host 配置。

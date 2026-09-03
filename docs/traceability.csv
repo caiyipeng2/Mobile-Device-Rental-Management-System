@@ -1,9 +1,9 @@
 RequirementId,ImplementationTask,PrimaryNamedTest,Status
 REQ-AUTH-001,Task 5,AccountApplicationServiceTests,Passing
 REQ-AUTH-002,Task 5,AccountApplicationServiceTests,Passing
-REQ-AUTH-003,Task 5,EmailVerificationTests,Planned
+REQ-AUTH-003,Task 5,AccountApplicationServiceTests,Implemented
 REQ-AUTH-004,Task 5,AccountApplicationServiceTests,Passing
-REQ-AUTH-005,Task 5,PasswordResetTests,Planned
+REQ-AUTH-005,Task 5,AccountApplicationServiceTests,Implemented
 REQ-AUTH-006,Task 5,AccountApplicationServiceTests,Passing
 REQ-AUTH-007,Task 5,AuthenticationSessionTests,Planned
 REQ-AUTH-008,Task 5,AuthenticationSessionTests,Planned

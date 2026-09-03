@@ -27,6 +27,9 @@ public sealed class AccountPageTests : IClassFixture<WebApplicationFactory<Progr
     [Theory]
     [InlineData("/Account/Register", "注册设备台账账户")]
     [InlineData("/Account/Login", "登录设备台账")]
+    [InlineData("/Account/VerifyEmail", "验证公司邮箱")]
+    [InlineData("/Account/ForgotPassword", "找回密码")]
+    [InlineData("/Account/ResetPassword", "重置密码")]
     [Trait("Category", "Web")]
     [Trait("Requirement", "REQ-AUTH-001")]
     public async Task Account_pages_render_without_opening_database_connection(string path, string heading)
