@@ -483,3 +483,56 @@ BEGIN
     END IF;
 END $EF$;
 COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903081236_LoanPolicyVersions') THEN
+    CREATE TABLE device_rental.loan_policy_versions (
+        id uuid NOT NULL,
+        version_number integer NOT NULL,
+        duration_minutes integer NOT NULL,
+        effective_at_utc timestamp with time zone NOT NULL,
+        changed_by_user_id uuid NOT NULL,
+        reason character varying(1000) NOT NULL,
+        CONSTRAINT "PK_loan_policy_versions" PRIMARY KEY (id),
+        CONSTRAINT ck_loan_policy_versions_actor_nonzero CHECK (changed_by_user_id <> '00000000-0000-0000-0000-000000000000'::uuid),
+        CONSTRAINT ck_loan_policy_versions_duration CHECK (duration_minutes BETWEEN 60 AND 10080),
+        CONSTRAINT ck_loan_policy_versions_id_nonzero CHECK (id <> '00000000-0000-0000-0000-000000000000'::uuid),
+        CONSTRAINT ck_loan_policy_versions_reason CHECK (btrim(reason) <> ''),
+        CONSTRAINT ck_loan_policy_versions_version_positive CHECK (version_number > 0),
+        CONSTRAINT "FK_loan_policy_versions_users_changed_by_user_id" FOREIGN KEY (changed_by_user_id) REFERENCES device_rental.users (id) ON DELETE RESTRICT
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903081236_LoanPolicyVersions') THEN
+    CREATE INDEX "IX_loan_policy_versions_changed_by_user_id" ON device_rental.loan_policy_versions (changed_by_user_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903081236_LoanPolicyVersions') THEN
+    CREATE INDEX ix_loan_policy_versions_effective ON device_rental.loan_policy_versions (effective_at_utc, version_number);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903081236_LoanPolicyVersions') THEN
+    CREATE UNIQUE INDEX ux_loan_policy_versions_version ON device_rental.loan_policy_versions (version_number);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903081236_LoanPolicyVersions') THEN
+    INSERT INTO device_rental."__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260903081236_LoanPolicyVersions', '10.0.11');
+    END IF;
+END $EF$;
+COMMIT;

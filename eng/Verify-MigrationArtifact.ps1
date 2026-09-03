@@ -9,11 +9,11 @@ $sqlPath = Join-Path $root 'deploy\database\device-rental-idempotent.sql'
 $migrationFiles = @(Get-ChildItem -LiteralPath $migrationDirectory -File -Filter '*.cs' |
     Where-Object { $_.Name -notlike '*.Designer.cs' -and $_.Name -ne 'DeviceRentalDbContextModelSnapshot.cs' } |
     Sort-Object Name)
-if ($migrationFiles.Count -ne 3) {
-    throw "Expected exactly three executable migrations, found $($migrationFiles.Count)."
+if ($migrationFiles.Count -ne 4) {
+    throw "Expected exactly four executable migrations, found $($migrationFiles.Count)."
 }
 
-$expectedNames = @('IdentityAndAccessPolicy', 'AuditAndOutbox', 'DeviceImages')
+$expectedNames = @('IdentityAndAccessPolicy', 'AuditAndOutbox', 'DeviceImages', 'LoanPolicyVersions')
 for ($index = 0; $index -lt $expectedNames.Count; $index++) {
     if ($migrationFiles[$index].BaseName -notmatch "^\d{14}_$($expectedNames[$index])$") {
         throw "Migration $index must be $($expectedNames[$index]); found $($migrationFiles[$index].Name)."
@@ -39,4 +39,4 @@ if ($sql -notmatch '__EFMigrationsHistory' -or $sql -notmatch 'device_rental') {
     throw 'Committed SQL must target the device_rental schema and its EF migration history.'
 }
 
-Write-Host 'PASS: exactly three ordered migrations and the committed idempotent SQL artifact agree.'
+Write-Host 'PASS: exactly four ordered migrations and the committed idempotent SQL artifact agree.'

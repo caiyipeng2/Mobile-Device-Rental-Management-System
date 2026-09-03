@@ -17,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton<InMemoryDeviceDeskService>();
 builder.Services.AddScoped<IDeviceCatalogStore, EfDeviceCatalogStore>();
+builder.Services.AddScoped<ILoanPolicyStore, EfLoanPolicyStore>();
 builder.Services.AddScoped<DatabaseDeviceDeskService>();
 builder.Services.AddScoped<IDeviceDeskService>(services =>
 {

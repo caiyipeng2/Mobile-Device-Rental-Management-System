@@ -28,7 +28,8 @@ public sealed class MigrationSmokeTests(PostgresTestEnvironment database)
             migrations,
             migration => Assert.EndsWith("_IdentityAndAccessPolicy", migration, StringComparison.Ordinal),
             migration => Assert.EndsWith("_AuditAndOutbox", migration, StringComparison.Ordinal),
-            migration => Assert.EndsWith("_DeviceImages", migration, StringComparison.Ordinal));
+            migration => Assert.EndsWith("_DeviceImages", migration, StringComparison.Ordinal),
+            migration => Assert.EndsWith("_LoanPolicyVersions", migration, StringComparison.Ordinal));
 
         var modelTypes = context.Model.GetEntityTypes()
             .Select(entity => entity.ClrType.FullName)
@@ -36,6 +37,7 @@ public sealed class MigrationSmokeTests(PostgresTestEnvironment database)
         Assert.Contains("DeviceRental.Infrastructure.Identity.ApplicationUser", modelTypes);
         Assert.Contains("DeviceRental.Infrastructure.Persistence.Records.AuditEventRecord", modelTypes);
         Assert.Contains("DeviceRental.Infrastructure.Persistence.Records.OutboxMessageRecord", modelTypes);
+        Assert.Contains("DeviceRental.Infrastructure.Persistence.Records.LoanPolicyVersionRecord", modelTypes);
         Assert.DoesNotContain("DeviceRental.Domain.Auditing.AuditEvent", modelTypes);
         Assert.DoesNotContain("DeviceRental.Domain.Notifications.OutboxMessage", modelTypes);
         Assert.DoesNotContain("DeviceRental.Domain.Notifications.EncryptedPayload", modelTypes);
@@ -60,12 +62,22 @@ public sealed class MigrationSmokeTests(PostgresTestEnvironment database)
         Assert.Contains("audit_events", latestTables);
         Assert.Contains("outbox_messages", latestTables);
         Assert.DoesNotContain("device_images", latestTables);
+        Assert.DoesNotContain("loan_policy_versions", latestTables);
+
+        await migrator.MigrateAsync(migrations[2], cancellationToken);
+        var imageTables = await ReadSchemaTablesAsync(cancellationToken);
+        Assert.Contains("device_images", imageTables);
+        Assert.DoesNotContain("loan_policy_versions", imageTables);
+
+        await migrator.MigrateAsync(migrations[3], cancellationToken);
+        Assert.Contains("loan_policy_versions", await ReadSchemaTablesAsync(cancellationToken));
+        Assert.Empty(await context.Database.GetPendingMigrationsAsync(cancellationToken));
 
         await migrator.MigrateAsync(migrations[0], cancellationToken);
         Assert.Equal(expectedIdentityTables, await ReadSchemaTablesAsync(cancellationToken));
 
-        await migrator.MigrateAsync(migrations[2], cancellationToken);
-        Assert.Contains("device_images", await ReadSchemaTablesAsync(cancellationToken));
+        await migrator.MigrateAsync(migrations[3], cancellationToken);
+        Assert.Contains("loan_policy_versions", await ReadSchemaTablesAsync(cancellationToken));
         Assert.Empty(await context.Database.GetPendingMigrationsAsync(cancellationToken));
     }
 

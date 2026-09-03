@@ -20,6 +20,8 @@ public sealed class DeviceRentalDbContext(
 
     public DbSet<DeviceImageMetadataRecord> DeviceImages => Set<DeviceImageMetadataRecord>();
 
+    public DbSet<LoanPolicyVersionRecord> LoanPolicyVersions => Set<LoanPolicyVersionRecord>();
+
     public DbSet<LoanRecord> Loans => Set<LoanRecord>();
 
     public override int SaveChanges()

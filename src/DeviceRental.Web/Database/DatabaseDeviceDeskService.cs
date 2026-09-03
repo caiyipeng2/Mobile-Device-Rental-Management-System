@@ -1,4 +1,5 @@
 using DeviceRental.Application.Devices;
+using DeviceRental.Application.Policy;
 using DeviceRental.Domain.Common;
 using DeviceRental.Domain.Devices;
 using DeviceRental.Domain.Lending;
@@ -18,16 +19,28 @@ namespace DeviceRental.Web.Database;
 public sealed class DatabaseDeviceDeskService(
     DeviceRentalDbContext dbContext,
     IDeviceCatalogStore catalogStore,
-    IConfiguration configuration) : IDeviceDeskService
+    IConfiguration configuration,
+    ILoanPolicyStore policyStore) : IDeviceDeskService
 {
     private static readonly Guid DefaultPolicyVersionId =
         Guid.Parse("30000000-0000-0000-0000-000000000001");
 
-    public int DefaultLoanMinutes =>
-        int.TryParse(configuration["Rental:DefaultLoanMinutes"], out var minutes) &&
-        minutes is >= LoanExtensionPolicy.MinimumMinutes and <= LoanExtensionPolicy.MaximumMinutes
-            ? minutes
-            : 1_440;
+    public int DefaultLoanMinutes
+    {
+        get
+        {
+            var persisted = policyStore.GetCurrentAsync(DateTimeOffset.UtcNow).GetAwaiter().GetResult();
+            if (persisted is not null)
+            {
+                return persisted.Duration.Value;
+            }
+
+            return int.TryParse(configuration["Rental:DefaultLoanMinutes"], out var minutes) &&
+                minutes is >= LoanExtensionPolicy.MinimumMinutes and <= LoanExtensionPolicy.MaximumMinutes
+                    ? minutes
+                    : 1_440;
+        }
+    }
 
     public DeviceDeskOverview GetOverview(DeviceDeskAvailability? availability, string? search = null)
     {
@@ -97,18 +110,21 @@ public sealed class DatabaseDeviceDeskService(
         }
 
         var borrowedAt = nowUtc.ToUniversalTime();
+        var policy = policyStore.GetCurrentAsync(borrowedAt).GetAwaiter().GetResult();
+        var loanMinutes = policy?.Duration.Value ?? DefaultLoanMinutes;
+        var policyVersionId = policy?.Id ?? DefaultPolicyVersionId;
         var loan = Loan.Open(
             Guid.NewGuid(),
             entry.Device.Id,
             user.UserId.Value,
             borrowedAt,
-            borrowedAt.AddMinutes(DefaultLoanMinutes),
-            DefaultPolicyVersionId);
+            borrowedAt.AddMinutes(loanMinutes),
+            policyVersionId);
         var result = catalogStore.TryBorrowAsync(loan).GetAwaiter().GetResult();
         return result.Status switch
         {
             DeviceCatalogStoreWriteStatus.Succeeded =>
-                DeviceDeskOperationResult.Success($"已借用 {entry.Device.ModelName}，请在 {DefaultLoanMinutes} 分钟内归还或联系管理员续借。"),
+                DeviceDeskOperationResult.Success($"已借用 {entry.Device.ModelName}，请在 {loanMinutes} 分钟内归还或联系管理员续借。"),
             DeviceCatalogStoreWriteStatus.DeviceAlreadyBorrowed =>
                 DeviceDeskOperationResult.Failure("设备刚刚被其他人借用，请刷新列表后重试。"),
             DeviceCatalogStoreWriteStatus.DeviceUnavailable =>
@@ -245,9 +261,33 @@ public sealed class DatabaseDeviceDeskService(
     public DeviceDeskOperationResult SetDefaultLoanMinutes(
         int minutes,
         string? reason,
-        DemoCurrentUser user) =>
-        DeviceDeskOperationResult.Failure(
-            "生产环境借期策略需要通过策略版本服务保存，当前入口暂未开放。");
+        DemoCurrentUser user)
+    {
+        if (!user.IsAdministrator || user.UserId is null)
+        {
+            return DeviceDeskOperationResult.Failure("只有测试组管理员可以修改默认借期。");
+        }
+
+        if (minutes is < LoanExtensionPolicy.MinimumMinutes or > LoanExtensionPolicy.MaximumMinutes)
+        {
+            return DeviceDeskOperationResult.Failure(
+                $"借期必须在 {LoanExtensionPolicy.MinimumMinutes} 到 {LoanExtensionPolicy.MaximumMinutes} 分钟之间。");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return DeviceDeskOperationResult.Failure("修改借期时必须填写原因。");
+        }
+
+        policyStore.CreateAsync(
+                DurationMinutes.From(minutes),
+                user.UserId.Value,
+                Reason.From(reason),
+                DateTimeOffset.UtcNow)
+            .GetAwaiter()
+            .GetResult();
+        return DeviceDeskOperationResult.Success($"默认借期已更新为 {minutes} 分钟。");
+    }
 
     private DeviceCatalogStoreEntry? Find(string assetNumber)
     {
