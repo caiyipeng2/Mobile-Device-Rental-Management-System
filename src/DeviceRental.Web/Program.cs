@@ -4,6 +4,8 @@ using DeviceRental.Application.Policy;
 using DeviceRental.Infrastructure.Identity;
 using DeviceRental.Infrastructure.Images;
 using DeviceRental.Infrastructure.Persistence;
+using DeviceRental.Infrastructure.Devices;
+using DeviceRental.Web.Database;
 using DeviceRental.Web.Demo;
 using DeviceRental.Web.Health;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -13,7 +15,16 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
-builder.Services.AddSingleton<IDeviceDeskService, InMemoryDeviceDeskService>();
+builder.Services.AddSingleton<InMemoryDeviceDeskService>();
+builder.Services.AddScoped<IDeviceCatalogStore, EfDeviceCatalogStore>();
+builder.Services.AddScoped<DatabaseDeviceDeskService>();
+builder.Services.AddScoped<IDeviceDeskService>(services =>
+{
+    var configuration = services.GetRequiredService<IConfiguration>();
+    return configuration.GetValue<bool>("Demo:Enabled")
+        ? services.GetRequiredService<InMemoryDeviceDeskService>()
+        : services.GetRequiredService<DatabaseDeviceDeskService>();
+});
 builder.Services.AddSingleton<DemoCurrentUserContext>();
 builder.Services.AddSingleton<AccessWindowPolicy>();
 builder.Services.AddSingleton<IDeviceImageDecoder, SkiaSharpDeviceImageDecoder>();
