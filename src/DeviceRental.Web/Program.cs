@@ -18,6 +18,12 @@ builder.Services.AddSingleton<DemoCurrentUserContext>();
 builder.Services.AddSingleton<AccessWindowPolicy>();
 builder.Services.AddSingleton<IDeviceImageDecoder, SkiaSharpDeviceImageDecoder>();
 builder.Services.AddSingleton<DeviceImageUploadPolicy>();
+var imageStorageRoot = builder.Configuration["Storage:DeviceImageRoot"];
+if (!string.IsNullOrWhiteSpace(imageStorageRoot))
+{
+    builder.Services.AddSingleton<IDeviceImageStorage>(_ =>
+        new FileSystemDeviceImageStorage(imageStorageRoot));
+}
 builder.Services.AddDbContext<DeviceRentalDbContext>((services, options) =>
 {
     var configuration = services.GetRequiredService<IConfiguration>();
