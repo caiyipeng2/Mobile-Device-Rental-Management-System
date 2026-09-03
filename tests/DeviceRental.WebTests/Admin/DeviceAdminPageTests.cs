@@ -29,7 +29,7 @@ public sealed class DeviceAdminPageTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     [Trait("Category", "Web")]
     [Trait("Requirement", "REQ-DEV-003")]
-    public async Task Administrator_must_supply_a_display_image_reference()
+    public async Task Administrator_page_requires_a_display_image_upload()
     {
         using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -69,6 +69,8 @@ public sealed class DeviceAdminPageTests : IClassFixture<WebApplicationFactory<P
         using var page = await client.GetAsync("/Admin/Devices", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         var html = await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("enctype=\"multipart/form-data\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"Image\"", html, StringComparison.Ordinal);
         var token = ExtractToken(html);
 
         using var response = await client.PostAsync(

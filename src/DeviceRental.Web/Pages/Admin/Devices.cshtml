@@ -23,7 +23,7 @@
 <section class="admin-layout">
     <div class="auth-card admin-form-card">
         <h2>新增设备</h2>
-        <form method="post" asp-page-handler="Create" class="auth-form">
+        <form method="post" asp-page-handler="Create" class="auth-form" enctype="multipart/form-data">
             <label for="assetNumber">资产编号</label>
             <input id="assetNumber" name="assetNumber" required maxlength="64" placeholder="例如 QA-061" />
             <label for="modelName">型号名称</label>
@@ -35,9 +35,9 @@
                 <option value="中端">中端</option>
                 <option value="高端">高端</option>
             </select>
-            <label for="imageReference">展示图引用</label>
-            <input id="imageReference" name="imageReference" maxlength="256" placeholder="例如 oneplus-13.webp" />
-            <p class="field-hint">正式上传将执行 JPG/PNG/WebP 魔数、解码和尺寸校验。</p>
+            <label for="image">展示图</label>
+            <input id="image" name="Image" type="file" accept="image/jpeg,image/png,image/webp" />
+            <p class="field-hint">仅接受 JPG、PNG、WebP；系统会执行魔数、完整解码和尺寸校验。</p>
             <button class="button button-primary" type="submit">新增设备</button>
         </form>
     </div>

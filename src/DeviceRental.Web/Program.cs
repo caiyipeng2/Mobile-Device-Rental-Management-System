@@ -30,6 +30,8 @@ builder.Services.AddSingleton<AccessWindowPolicy>();
 builder.Services.AddSingleton<IDeviceImageDecoder, SkiaSharpDeviceImageDecoder>();
 builder.Services.AddSingleton<DeviceImageUploadPolicy>();
 builder.Services.AddScoped<IDeviceImageMetadataStore, EfDeviceImageMetadataStore>();
+builder.Services.AddScoped<IDeviceRegistrationStore, EfDeviceRegistrationStore>();
+builder.Services.AddScoped<IDeviceIntakeService, DatabaseDeviceIntakeService>();
 var imageStorageRoot = builder.Configuration["Storage:DeviceImageRoot"];
 if (!string.IsNullOrWhiteSpace(imageStorageRoot))
 {
