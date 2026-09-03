@@ -27,7 +27,8 @@ public sealed class MigrationSmokeTests(PostgresTestEnvironment database)
         Assert.Collection(
             migrations,
             migration => Assert.EndsWith("_IdentityAndAccessPolicy", migration, StringComparison.Ordinal),
-            migration => Assert.EndsWith("_AuditAndOutbox", migration, StringComparison.Ordinal));
+            migration => Assert.EndsWith("_AuditAndOutbox", migration, StringComparison.Ordinal),
+            migration => Assert.EndsWith("_DeviceImages", migration, StringComparison.Ordinal));
 
         var modelTypes = context.Model.GetEntityTypes()
             .Select(entity => entity.ClrType.FullName)
@@ -58,11 +59,13 @@ public sealed class MigrationSmokeTests(PostgresTestEnvironment database)
         var latestTables = await ReadSchemaTablesAsync(cancellationToken);
         Assert.Contains("audit_events", latestTables);
         Assert.Contains("outbox_messages", latestTables);
+        Assert.DoesNotContain("device_images", latestTables);
 
         await migrator.MigrateAsync(migrations[0], cancellationToken);
         Assert.Equal(expectedIdentityTables, await ReadSchemaTablesAsync(cancellationToken));
 
-        await migrator.MigrateAsync(migrations[1], cancellationToken);
+        await migrator.MigrateAsync(migrations[2], cancellationToken);
+        Assert.Contains("device_images", await ReadSchemaTablesAsync(cancellationToken));
         Assert.Empty(await context.Database.GetPendingMigrationsAsync(cancellationToken));
     }
 

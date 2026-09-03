@@ -3,6 +3,7 @@ using System;
 using DeviceRental.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DeviceRental.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(DeviceRentalDbContext))]
-    partial class DeviceRentalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903031749_DeviceImages")]
+    partial class DeviceImages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

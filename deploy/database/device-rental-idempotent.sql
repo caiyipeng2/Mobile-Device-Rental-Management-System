@@ -1,4 +1,4 @@
-DO $EF$
+﻿DO $EF$
 BEGIN
     IF NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'device_rental') THEN
         CREATE SCHEMA device_rental;
@@ -199,7 +199,6 @@ BEGIN
     END IF;
 END $EF$;
 COMMIT;
-
 START TRANSACTION;
 
 DO $EF$
@@ -434,6 +433,53 @@ BEGIN
     IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260902095703_AuditAndOutbox') THEN
     INSERT INTO device_rental."__EFMigrationsHistory" ("MigrationId", "ProductVersion")
     VALUES ('20260902095703_AuditAndOutbox', '10.0.11');
+    END IF;
+END $EF$;
+COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903031749_DeviceImages') THEN
+    CREATE TABLE device_rental.device_images (
+        id uuid NOT NULL,
+        storage_key character varying(300) NOT NULL,
+        content_type character varying(32) NOT NULL,
+        byte_length bigint NOT NULL,
+        pixel_width integer NOT NULL,
+        pixel_height integer NOT NULL,
+        sha256_hex character varying(64) NOT NULL,
+        created_at_utc timestamp with time zone NOT NULL,
+        CONSTRAINT "PK_device_images" PRIMARY KEY (id),
+        CONSTRAINT ck_device_images_content_type CHECK (content_type IN ('image/jpeg', 'image/png', 'image/webp')),
+        CONSTRAINT ck_device_images_dimensions CHECK (byte_length > 0 AND byte_length <= 5242880 AND pixel_width > 0 AND pixel_height > 0 AND pixel_width <= 4096 AND pixel_height <= 4096 AND (pixel_width::bigint * pixel_height::bigint) <= 16000000),
+        CONSTRAINT ck_device_images_id_nonzero CHECK (id <> '00000000-0000-0000-0000-000000000000'::uuid),
+        CONSTRAINT ck_device_images_sha256 CHECK (sha256_hex ~ '^[0-9a-f]{64}$'),
+        CONSTRAINT ck_device_images_storage_key CHECK (storage_key LIKE 'images/%' AND btrim(storage_key) <> '')
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903031749_DeviceImages') THEN
+    CREATE INDEX ix_device_images_sha256 ON device_rental.device_images (sha256_hex);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903031749_DeviceImages') THEN
+    CREATE UNIQUE INDEX ux_device_images_storage_key ON device_rental.device_images (storage_key);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903031749_DeviceImages') THEN
+    INSERT INTO device_rental."__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260903031749_DeviceImages', '10.0.11');
     END IF;
 END $EF$;
 COMMIT;

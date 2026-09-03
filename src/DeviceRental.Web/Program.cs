@@ -29,6 +29,7 @@ builder.Services.AddSingleton<DemoCurrentUserContext>();
 builder.Services.AddSingleton<AccessWindowPolicy>();
 builder.Services.AddSingleton<IDeviceImageDecoder, SkiaSharpDeviceImageDecoder>();
 builder.Services.AddSingleton<DeviceImageUploadPolicy>();
+builder.Services.AddScoped<IDeviceImageMetadataStore, EfDeviceImageMetadataStore>();
 var imageStorageRoot = builder.Configuration["Storage:DeviceImageRoot"];
 if (!string.IsNullOrWhiteSpace(imageStorageRoot))
 {
@@ -165,6 +166,52 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = registration => registration.Tags.Contains("ready"),
+});
+app.MapGet("/devices/{deviceId:guid}/image", async (
+    Guid deviceId,
+    DeviceRentalDbContext dbContext,
+    IDeviceImageMetadataStore metadataStore,
+    HttpContext httpContext,
+    CancellationToken cancellationToken) =>
+{
+    var storage = httpContext.RequestServices.GetService<IDeviceImageStorage>();
+    if (storage is null)
+    {
+        return Results.Problem(
+            "Private device image storage is not configured.",
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    var device = await dbContext.Devices
+        .AsNoTracking()
+        .SingleOrDefaultAsync(value => value.Id == deviceId, cancellationToken);
+    if (device is null || device.IsArchived)
+    {
+        return Results.NotFound();
+    }
+
+    var metadata = await metadataStore.FindAsync(device.ImageId, cancellationToken);
+    if (metadata is null)
+    {
+        return Results.NotFound();
+    }
+
+    Stream image;
+    try
+    {
+        image = await storage.OpenReadAsync(metadata.StorageKey, cancellationToken);
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.NotFound();
+    }
+
+    httpContext.Response.Headers.CacheControl = "private, no-store";
+    httpContext.Response.Headers.Vary = "Cookie";
+    httpContext.Response.Headers.XContentTypeOptions = "nosniff";
+    httpContext.Response.Headers["Referrer-Policy"] = "no-referrer";
+    httpContext.Response.ContentLength = metadata.ByteLength;
+    return Results.Stream(image, metadata.ContentType, enableRangeProcessing: false);
 });
 app.MapStaticAssets();
 app.MapRazorPages()
