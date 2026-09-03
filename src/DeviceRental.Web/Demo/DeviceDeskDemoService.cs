@@ -437,18 +437,32 @@ public sealed class InMemoryDeviceDeskService : IDeviceDeskService
 
 public sealed class DemoCurrentUserContext(IConfiguration configuration)
 {
+    public bool IsDemoEnabled =>
+        bool.TryParse(configuration["Demo:Enabled"], out var enabled) && enabled;
+
     public DemoCurrentUser GetCurrentUser(ClaimsPrincipal? principal = null)
     {
         if (principal?.Identity?.IsAuthenticated == true)
         {
             var claimName = principal.FindFirstValue(ClaimTypes.Name);
             var claimRole = principal.FindFirstValue(ClaimTypes.Role);
+            var claimUserId = Guid.TryParse(
+                principal.FindFirstValue(ClaimTypes.NameIdentifier),
+                out var userId)
+                ? userId
+                : (Guid?)null;
             if (!string.IsNullOrWhiteSpace(claimName))
             {
                 return new DemoCurrentUser(
                     claimName.Trim(),
-                    string.Equals(claimRole, "TEST_ADMIN", StringComparison.Ordinal));
+                    string.Equals(claimRole, "TEST_ADMIN", StringComparison.Ordinal),
+                    claimUserId);
             }
+        }
+
+        if (!IsDemoEnabled)
+        {
+            return new DemoCurrentUser("未登录", false);
         }
 
         var displayName = configuration["Demo:CurrentUserName"];
@@ -461,7 +475,10 @@ public sealed class DemoCurrentUserContext(IConfiguration configuration)
     }
 }
 
-public sealed record DemoCurrentUser(string DisplayName, bool IsAdministrator)
+public sealed record DemoCurrentUser(
+    string DisplayName,
+    bool IsAdministrator,
+    Guid? UserId = null)
 {
     public string RoleDisplayName => IsAdministrator ? "测试组管理员" : "普通用户";
 }

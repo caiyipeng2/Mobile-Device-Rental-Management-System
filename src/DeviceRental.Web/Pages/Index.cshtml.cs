@@ -18,6 +18,8 @@ public sealed class IndexModel(
 
     public DemoCurrentUser CurrentUser { get; private set; } = new("", false);
 
+    public bool IsDemoMode { get; private set; }
+
     public string? Feedback => TempData["DeviceDeskFeedback"] as string;
 
     public bool FeedbackSucceeded => TempData["DeviceDeskFeedbackSucceeded"] as bool? ?? false;
@@ -64,6 +66,7 @@ public sealed class IndexModel(
     private void Load()
     {
         CurrentUser = GetCurrentUser();
+        IsDemoMode = currentUserContext.IsDemoEnabled;
         Overview = deviceDesk.GetOverview(ParseAvailability(), Search);
     }
 

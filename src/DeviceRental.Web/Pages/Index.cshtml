@@ -16,10 +16,13 @@
     </div>
 </section>
 
-<section class="notice notice-info" aria-label="演示模式说明">
-    <span class="notice-mark" aria-hidden="true"></span>
-    <p><strong>演示模式</strong>：当前操作仅保存在此 Web 进程内，重启后将恢复示例数据。</p>
-</section>
+@if (Model.IsDemoMode)
+{
+    <section class="notice notice-info" aria-label="演示模式说明">
+        <span class="notice-mark" aria-hidden="true"></span>
+        <p><strong>演示模式</strong>：当前操作仅保存在此 Web 进程内，重启后将恢复示例数据。</p>
+    </section>
+}
 
 @if (!string.IsNullOrWhiteSpace(Model.Feedback))
 {

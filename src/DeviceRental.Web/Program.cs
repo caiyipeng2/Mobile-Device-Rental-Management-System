@@ -86,12 +86,17 @@ app.UseRouting();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
-    if (app.Environment.IsEnvironment("Testing") ||
-        context.Request.Path.StartsWithSegments("/health") ||
+    var currentUserContext = context.RequestServices.GetRequiredService<DemoCurrentUserContext>();
+    var isDemoTesting = app.Environment.IsEnvironment("Testing") && currentUserContext.IsDemoEnabled;
+    var isPublicPath = context.Request.Path.StartsWithSegments("/health") ||
         context.Request.Path.StartsWithSegments("/Closed") ||
         context.Request.Path.StartsWithSegments("/css") ||
         context.Request.Path.StartsWithSegments("/vendor") ||
-        context.Request.Path.StartsWithSegments("/favicon.ico"))
+        context.Request.Path.StartsWithSegments("/favicon.ico") ||
+        context.Request.Path.StartsWithSegments("/Account") ||
+        context.Request.Path.StartsWithSegments("/Privacy");
+
+    if (isDemoTesting || isPublicPath)
     {
         await next();
         return;
@@ -99,25 +104,40 @@ app.Use(async (context, next) =>
 
     var accessWindow = context.RequestServices.GetRequiredService<AccessWindowPolicy>()
         .Evaluate(DateTimeOffset.UtcNow);
-    if (accessWindow.IsOpen)
+    if (!accessWindow.IsOpen)
     {
-        await next();
-        return;
-    }
-
-    if (context.Request.Path.StartsWithSegments("/api"))
-    {
-        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-        context.Response.ContentType = "application/json; charset=utf-8";
-        await context.Response.WriteAsJsonAsync(new
+        if (context.Request.Path.StartsWithSegments("/api"))
         {
-            code = "OUTSIDE_ACCESS_WINDOW",
-            nextOpenUtc = accessWindow.NextOpenUtc,
-        });
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            context.Response.ContentType = "application/json; charset=utf-8";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = "OUTSIDE_ACCESS_WINDOW",
+                nextOpenUtc = accessWindow.NextOpenUtc,
+            });
+            return;
+        }
+
+        context.Response.Redirect($"/Closed?nextOpenUtc={Uri.EscapeDataString(accessWindow.NextOpenUtc!.Value.ToString("O"))}");
         return;
     }
 
-    context.Response.Redirect($"/Closed?nextOpenUtc={Uri.EscapeDataString(accessWindow.NextOpenUtc!.Value.ToString("O"))}");
+    if (context.User.Identity?.IsAuthenticated != true)
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json; charset=utf-8";
+            await context.Response.WriteAsJsonAsync(new { code = "AUTHENTICATION_REQUIRED" });
+            return;
+        }
+
+        var returnUrl = context.Request.PathBase + context.Request.Path + context.Request.QueryString;
+        context.Response.Redirect($"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+        return;
+    }
+
+    await next();
 });
 app.UseAuthorization();
 
