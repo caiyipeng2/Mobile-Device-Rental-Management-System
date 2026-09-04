@@ -184,5 +184,10 @@ public sealed class PostgresOutboxStore(DeviceRentalDbContext dbContext) : IOutb
             record.AggregateVersion,
             record.CorrelationId,
             record.Attempts,
-            record.AvailableAt);
+            record.AvailableAt,
+            record.PayloadSchemaVersion ?? throw new InvalidOperationException("Outbox payload schema version is missing."),
+            record.PayloadKeyVersion ?? throw new InvalidOperationException("Outbox payload key version is missing."),
+            record.PayloadCiphertext is null
+                ? throw new InvalidOperationException("Outbox payload ciphertext is missing.")
+                : [.. record.PayloadCiphertext]);
 }

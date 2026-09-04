@@ -9,7 +9,10 @@ public sealed record OutboxClaim(
     long AggregateVersion,
     string CorrelationId,
     int AttemptCount,
-    DateTimeOffset AvailableAtUtc);
+    DateTimeOffset AvailableAtUtc,
+    int PayloadSchemaVersion,
+    string PayloadKeyVersion,
+    byte[] PayloadCiphertext);
 
 public interface IOutboxStore
 {
@@ -84,4 +87,11 @@ public interface INotificationSender
     Task<NotificationSendResult> SendAsync(
         OutboxClaim claim,
         CancellationToken cancellationToken = default);
+}
+
+public interface INotificationPayloadCodec
+{
+    byte[] Encode(NotificationPayload payload, int schemaVersion);
+
+    NotificationPayload Decode(OutboxClaim claim);
 }

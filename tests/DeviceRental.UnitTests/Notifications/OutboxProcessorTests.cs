@@ -86,7 +86,10 @@ public sealed class OutboxProcessorTests
         1,
         "correlation-1",
         0,
-        DateTimeOffset.Parse("2026-09-03T09:59:00Z"));
+        DateTimeOffset.Parse("2026-09-03T09:59:00Z"),
+        1,
+        "test-v1",
+        [1, 2, 3]);
 
     private sealed class FakeNotificationSender(NotificationSendResult result) : INotificationSender
     {

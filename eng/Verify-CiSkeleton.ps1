@@ -36,14 +36,14 @@ $buildUnitJob = [regex]::Match(
     $workflow,
     '(?ms)^  build-unit:\s*$.*?(?=^  [A-Za-z0-9_-]+:\s*$|\z)').Value
 if ($buildUnitJob -notmatch [regex]::Escape('tests/DeviceRental.WebTests/DeviceRental.WebTests.csproj') -or
-    $buildUnitJob -notmatch '(?s)DeviceRental\.WebTests\.csproj.*?--minimum-expected-tests\s+3' -or
+    $buildUnitJob -notmatch '(?s)DeviceRental\.WebTests\.csproj.*?--minimum-expected-tests\s+37' -or
     $buildUnitJob -notmatch '(?s)DeviceRental\.WebTests\.csproj.*?--fail-skips\s+on' -or
     $buildUnitJob -notmatch [regex]::Escape('artifacts/test-results/web-health')) {
-    Add-Failure 'The build-unit job must execute at least three fail-closed Web health tests and retain their TRX evidence.'
+    Add-Failure 'The build-unit job must require all 37 current Web tests and retain their TRX evidence.'
 }
 
-if ($buildUnitJob -notmatch '(?s)DeviceRental\.UnitTests\.csproj.*?--minimum-expected-tests\s+90') {
-    Add-Failure 'The build-unit job must require the current 90-test Unit suite baseline.'
+if ($buildUnitJob -notmatch '(?s)DeviceRental\.UnitTests\.csproj.*?--minimum-expected-tests\s+129') {
+    Add-Failure 'The build-unit job must require the current 129-test Unit suite baseline.'
 }
 
 $integrationJob = [regex]::Match(

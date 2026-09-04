@@ -69,7 +69,7 @@ jobs:
           --project tests/DeviceRental.UnitTests/DeviceRental.UnitTests.csproj
           --configuration Release
           --no-build
-          --minimum-expected-tests 90
+          --minimum-expected-tests 129
           --results-directory artifacts/test-results
           --report-xunit-trx
           --report-xunit-trx-filename unit-mtp.trx
@@ -85,7 +85,7 @@ jobs:
           --project tests/DeviceRental.WebTests/DeviceRental.WebTests.csproj
           --configuration Release
           --no-build
-          --minimum-expected-tests 3
+          --minimum-expected-tests 37
           --fail-skips on
           --results-directory artifacts/test-results/web-health
           --report-xunit-trx

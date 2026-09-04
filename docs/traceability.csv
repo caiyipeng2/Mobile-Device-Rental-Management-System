@@ -44,9 +44,9 @@ REQ-TIME-007,Task 4,InteractiveCommandTransactionTests,Planned
 REQ-AUDIT-001,Task 4,AuditEventTests,Passing
 REQ-AUDIT-002,Task 4,AuditFieldWhitelistTests,Planned
 REQ-AUDIT-003,Task 4,AtomicAuditOutboxTests,Planned
-REQ-NOTIFY-001,Task 9,NotificationTemplateTests,Planned
+REQ-NOTIFY-001,Task 9,NotificationTemplateTests,Implemented
 REQ-NOTIFY-002,Task 9,LoanNotificationPlannerTests,Passing
-REQ-NOTIFY-003,Task 9,ForceReturnNotificationTests,Planned
+REQ-NOTIFY-003,Task 9,NotificationTemplateTests,Implemented
 REQ-NOTIFY-004,Task 9,OutboxProcessorTests,Implemented
 REQ-NOTIFY-005,Task 9,LoanNotificationPlannerTests,Passing
 REQ-NOTIFY-006,Task 9,OutboxClaimConcurrencyTests,Planned
