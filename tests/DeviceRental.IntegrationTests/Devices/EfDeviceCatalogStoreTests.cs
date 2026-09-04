@@ -105,12 +105,16 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
         var result = await new EfDeviceCatalogStore(context, writer).TryBorrowAsync(loan, cancellationToken);
 
         Assert.Equal(DeviceCatalogStoreWriteStatus.Succeeded, result.Status);
-        var notification = Assert.Single(writer.Requests);
-        Assert.Equal("LOAN_BORROWED", notification.EventType);
+        Assert.Equal(3, writer.Requests.Count);
+        var notification = Assert.Single(writer.Requests, value => value.EventType == "LOAN_BORROWED");
         Assert.Equal("LOAN", notification.AggregateType);
         Assert.Equal(loan.Id.ToString("D"), notification.AggregateId);
         Assert.Equal(borrower.Id, notification.Payload.RecipientUserId);
         Assert.Equal("DEVICE-EVENT-001", notification.Payload.Values["assetNumber"]);
+        var advance = Assert.Single(writer.Requests, value => value.EventType == "LOAN_ADVANCE_REMINDER");
+        Assert.Equal(now.AddHours(22), advance.AvailableAtUtc);
+        var due = Assert.Single(writer.Requests, value => value.EventType == "LOAN_DUE");
+        Assert.Equal(now.AddDays(1), due.AvailableAtUtc);
     }
 
     [Fact]
@@ -148,6 +152,11 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
         var borrower = await CreateUserAsync("borrower@example.internal", cancellationToken);
         var anotherUser = await CreateUserAsync("other@example.internal", cancellationToken);
         var device = await CreateBorrowedDeviceAsync(borrower.Id, "DEVICE-003", cancellationToken);
+        await using var loanContext = CreateContext();
+        var loanId = await loanContext.Loans
+            .Where(value => value.DeviceId == device.Id && value.ReturnedAt == null)
+            .Select(value => value.Id)
+            .SingleAsync(cancellationToken);
         var returnedAt = DateTimeOffset.UtcNow.AddMinutes(5);
         var writer = new CapturingNotificationOutboxWriter();
         await using var context = CreateContext();
@@ -159,9 +168,12 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
         Assert.Equal(DeviceCatalogStoreWriteStatus.ReturnNotAuthorized, denied.Status);
         Assert.Equal(DeviceCatalogStoreWriteStatus.Succeeded, returned.Status);
         Assert.Equal(ReturnKind.Self, returned.Loan!.ReturnKind);
-        var notification = Assert.Single(writer.Requests);
+        var notification = Assert.Single(writer.Requests, value => value.EventType == "LOAN_RETURNED");
         Assert.Equal("LOAN_RETURNED", notification.EventType);
         Assert.Equal(borrower.Id, notification.Payload.RecipientUserId);
+        Assert.Single(writer.CancellationRequests);
+        Assert.Equal("LOAN", writer.CancellationRequests[0].AggregateType);
+        Assert.Equal(loanId.ToString("D"), writer.CancellationRequests[0].AggregateId);
         await using var verifyContext = CreateContext();
         var persisted = Assert.Single(await verifyContext.Loans.Where(loan => loan.DeviceId == device.Id)
             .ToListAsync(cancellationToken));
@@ -226,7 +238,12 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
 
         Assert.Equal(DeviceCatalogStoreWriteStatus.Succeeded, result.Status);
         Assert.NotNull(result.Extension);
-        var notification = Assert.Single(writer.Requests);
+        Assert.Equal(3, writer.Requests.Count);
+        Assert.Contains(writer.Requests, value => value.EventType == "LOAN_EXTENDED");
+        Assert.Contains(writer.Requests, value => value.EventType == "LOAN_ADVANCE_REMINDER");
+        Assert.Contains(writer.Requests, value => value.EventType == "LOAN_DUE");
+        Assert.Single(writer.CancellationRequests);
+        var notification = Assert.Single(writer.Requests, value => value.EventType == "LOAN_EXTENDED");
         Assert.Equal("LOAN_EXTENDED", notification.EventType);
         Assert.Equal(borrower.Id, notification.Payload.RecipientUserId);
         await using var verifyContext = CreateContext();
@@ -296,12 +313,31 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
     {
         public List<NotificationOutboxRequest> Requests { get; } = [];
 
+        public List<(string AggregateType, string AggregateId, DateTimeOffset CanceledAtUtc)> CancellationRequests { get; } = [];
+
         public void Enqueue(NotificationOutboxRequest request) => Requests.Add(request);
+
+        public Task<int> CancelPendingRemindersAsync(
+            string aggregateType,
+            string aggregateId,
+            DateTimeOffset canceledAtUtc,
+            CancellationToken cancellationToken = default)
+        {
+            CancellationRequests.Add((aggregateType, aggregateId, canceledAtUtc));
+            return Task.FromResult(1);
+        }
     }
 
     private sealed class ThrowingNotificationOutboxWriter : INotificationOutboxWriter
     {
         public void Enqueue(NotificationOutboxRequest request) =>
+            throw new InvalidOperationException("synthetic outbox failure");
+
+        public Task<int> CancelPendingRemindersAsync(
+            string aggregateType,
+            string aggregateId,
+            DateTimeOffset canceledAtUtc,
+            CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("synthetic outbox failure");
     }
 }

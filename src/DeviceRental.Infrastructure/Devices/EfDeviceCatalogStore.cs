@@ -23,6 +23,7 @@ public sealed class EfDeviceCatalogStore(
 {
     private const string OpenLoanUniqueIndex = "ux_loans_open_device";
     private readonly LoanExtensionPolicy _extensionPolicy = new();
+    private readonly LoanNotificationPlanner _notificationPlanner = new();
 
     public async Task<IReadOnlyList<DeviceCatalogStoreEntry>> ListUnarchivedAsync(
         CancellationToken cancellationToken = default)
@@ -76,19 +77,21 @@ public sealed class EfDeviceCatalogStore(
             dbContext.Loans.Add(loanRecord);
             var borrower = await dbContext.Users.AsNoTracking()
                 .SingleAsync(user => user.Id == loan.BorrowerId, cancellationToken);
+            var notificationValues = new Dictionary<string, string?>
+            {
+                ["deviceModel"] = deviceRecord.ModelName,
+                ["assetNumber"] = deviceRecord.AssetNumber,
+                ["borrowedAt"] = loan.BorrowedAtUtc.ToString("yyyy-MM-dd HH:mm"),
+                ["dueAt"] = loan.DueAtUtc.ToString("yyyy-MM-dd HH:mm"),
+            };
             EnqueueLoanNotification(
                 loan,
                 loanRecord.Version,
                 "LOAN_BORROWED",
                 borrower,
                 loan.BorrowedAtUtc,
-                new Dictionary<string, string?>
-                {
-                    ["deviceModel"] = deviceRecord.ModelName,
-                    ["assetNumber"] = deviceRecord.AssetNumber,
-                    ["borrowedAt"] = loan.BorrowedAtUtc.ToString("yyyy-MM-dd HH:mm"),
-                    ["dueAt"] = loan.DueAtUtc.ToString("yyyy-MM-dd HH:mm"),
-                });
+                notificationValues);
+            EnqueueLoanReminders(loan, loanRecord.Version, borrower, loan.BorrowedAtUtc, notificationValues);
             try
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
@@ -140,6 +143,7 @@ public sealed class EfDeviceCatalogStore(
                 ReturnKind.Self,
                 returnReason: null);
             ApplyLoan(loanRecord, returnedLoan);
+            await CancelPendingLoanRemindersAsync(loanRecord, returnedAtUtc, cancellationToken);
             var device = await dbContext.Devices.AsNoTracking()
                 .SingleAsync(value => value.Id == deviceId, cancellationToken);
             var borrower = await dbContext.Users.AsNoTracking()
@@ -199,6 +203,7 @@ public sealed class EfDeviceCatalogStore(
                 ReturnKind.Forced,
                 reason);
             ApplyLoan(loanRecord, returnedLoan);
+            await CancelPendingLoanRemindersAsync(loanRecord, returnedAtUtc, cancellationToken);
             deviceRecord.ManualState = "TEMPORARILY_DISABLED";
             deviceRecord.TemporaryUnavailableReason = reason.Value;
             deviceRecord.Version++;
@@ -257,6 +262,7 @@ public sealed class EfDeviceCatalogStore(
                 reason,
                 effectiveNowUtc);
             ApplyLoan(loanRecord, result.UpdatedLoan);
+            await CancelPendingLoanRemindersAsync(loanRecord, effectiveNowUtc, cancellationToken);
             var device = await dbContext.Devices.AsNoTracking()
                 .SingleAsync(value => value.Id == deviceId, cancellationToken);
             var borrower = await dbContext.Users.AsNoTracking()
@@ -265,6 +271,17 @@ public sealed class EfDeviceCatalogStore(
                 result.UpdatedLoan,
                 loanRecord.Version,
                 "LOAN_EXTENDED",
+                borrower,
+                effectiveNowUtc,
+                new Dictionary<string, string?>
+                {
+                    ["deviceModel"] = device.ModelName,
+                    ["assetNumber"] = device.AssetNumber,
+                    ["dueAt"] = result.UpdatedLoan.DueAtUtc.ToString("yyyy-MM-dd HH:mm"),
+                });
+            EnqueueLoanReminders(
+                result.UpdatedLoan,
+                loanRecord.Version,
                 borrower,
                 effectiveNowUtc,
                 new Dictionary<string, string?>
@@ -323,7 +340,9 @@ public sealed class EfDeviceCatalogStore(
         string eventType,
         ApplicationUser borrower,
         DateTimeOffset createdAtUtc,
-        IReadOnlyDictionary<string, string?> values)
+        IReadOnlyDictionary<string, string?> values,
+        string? deduplicationKey = null,
+        DateTimeOffset? availableAtUtc = null)
     {
         if (notificationOutboxWriter is null || string.IsNullOrWhiteSpace(borrower.Email))
         {
@@ -331,13 +350,67 @@ public sealed class EfDeviceCatalogStore(
         }
 
         notificationOutboxWriter.Enqueue(new NotificationOutboxRequest(
-            $"loan:{loan.Id:D}:{eventType.ToLowerInvariant()}",
+            deduplicationKey ?? $"loan:{loan.Id:D}:{eventType.ToLowerInvariant()}",
             eventType,
             "LOAN",
             loan.Id.ToString("D"),
             aggregateVersion,
             $"loan:{loan.Id:D}:v{aggregateVersion}",
             new NotificationPayload(borrower.Email, borrower.RealName, values, borrower.Id),
-            createdAtUtc));
+            createdAtUtc,
+            availableAtUtc));
     }
+
+    private void EnqueueLoanReminders(
+        Loan loan,
+        long aggregateVersion,
+        ApplicationUser borrower,
+        DateTimeOffset scheduleCreatedAtUtc,
+        IReadOnlyDictionary<string, string?> values)
+    {
+        if (notificationOutboxWriter is null || string.IsNullOrWhiteSpace(borrower.Email))
+        {
+            return;
+        }
+
+        var plan = _notificationPlanner.Create(
+            loan.Id,
+            aggregateVersion,
+            scheduleCreatedAtUtc,
+            loan.DueAtUtc);
+        if (plan.AdvanceReminderAtUtc is { } advanceAtUtc)
+        {
+            EnqueueLoanNotification(
+                loan,
+                aggregateVersion,
+                "LOAN_ADVANCE_REMINDER",
+                borrower,
+                scheduleCreatedAtUtc,
+                values,
+                plan.AdvanceReminderKey,
+                advanceAtUtc);
+        }
+
+        EnqueueLoanNotification(
+            loan,
+            aggregateVersion,
+            "LOAN_DUE",
+            borrower,
+            scheduleCreatedAtUtc,
+            values,
+            plan.DueReminderKey,
+            plan.DueReminderAtUtc);
+    }
+
+    private Task<int> CancelPendingLoanRemindersAsync(
+        LoanRecord loanRecord,
+        DateTimeOffset canceledAtUtc,
+        CancellationToken cancellationToken) =>
+        notificationOutboxWriter is null
+            ? Task.FromResult(0)
+            : notificationOutboxWriter.CancelPendingRemindersAsync(
+                "LOAN",
+                loanRecord.Id.ToString("D"),
+                canceledAtUtc,
+                cancellationToken);
 }

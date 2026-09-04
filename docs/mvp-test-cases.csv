@@ -59,7 +59,7 @@ NOTIFY-003,Task 9,OutboxProcessorTests,Implemented
 NOTIFY-004,Task 9,PostgresOutboxStoreTests,Implemented
 NOTIFY-005,Task 9,PostgresOutboxStoreTests,Implemented
 NOTIFY-006,Task 9,OutboxSendingCasTests,Planned
-NOTIFY-007,Task 9,NotificationTemplateTests,Planned
+NOTIFY-007,Task 9,EfDeviceCatalogStoreTests,Implemented
 NOTIFY-008,Task 9,SelfReturnNotificationTests,Planned
 AUDIT-001,Task 4,AuditFieldWhitelistTests,Planned
 AUDIT-002,Task 4,AuditFieldWhitelistTests,Planned

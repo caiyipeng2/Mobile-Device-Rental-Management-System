@@ -123,4 +123,10 @@ public sealed record NotificationOutboxRequest(
 public interface INotificationOutboxWriter
 {
     void Enqueue(NotificationOutboxRequest request);
+
+    Task<int> CancelPendingRemindersAsync(
+        string aggregateType,
+        string aggregateId,
+        DateTimeOffset canceledAtUtc,
+        CancellationToken cancellationToken = default);
 }

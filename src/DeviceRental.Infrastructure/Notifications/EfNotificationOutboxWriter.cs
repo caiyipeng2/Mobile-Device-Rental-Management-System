@@ -3,6 +3,7 @@ using DeviceRental.Domain.Notifications;
 using DeviceRental.Infrastructure.Options;
 using DeviceRental.Infrastructure.Persistence;
 using DeviceRental.Infrastructure.Persistence.Mappers;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DeviceRental.Infrastructure.Notifications;
@@ -40,4 +41,20 @@ public sealed class EfNotificationOutboxWriter(
             request.AvailableAtUtc?.ToUniversalTime() ?? createdAt);
         dbContext.OutboxMessages.Add(OutboxMessageMapper.ToRecord(message));
     }
+
+    public Task<int> CancelPendingRemindersAsync(
+        string aggregateType,
+        string aggregateId,
+        DateTimeOffset canceledAtUtc,
+        CancellationToken cancellationToken = default) =>
+        dbContext.OutboxMessages
+            .Where(message =>
+                message.AggregateType == aggregateType &&
+                message.AggregateId == aggregateId &&
+                (message.EventType == "LOAN_ADVANCE_REMINDER" || message.EventType == "LOAN_DUE") &&
+                (message.Status == "PENDING" || message.Status == "CLAIMED"))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(message => message.Status, "CANCELLED")
+                .SetProperty(message => message.CanceledAt, canceledAtUtc.ToUniversalTime())
+                .SetProperty(message => message.LastError, (string?)null), cancellationToken);
 }

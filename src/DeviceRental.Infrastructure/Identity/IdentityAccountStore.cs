@@ -67,6 +67,7 @@ public sealed class IdentityAccountStore(
         }
 
         await EnqueueVerificationNotificationAsync(user, user.CreatedAt, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
         return AccountCreationResult.Created(await ToSnapshotAsync(user));
@@ -133,13 +134,32 @@ public sealed class IdentityAccountStore(
         }
 
         // Rotating the stamp makes a resent verification link invalidate any older link.
-        await userManager.UpdateSecurityStampAsync(user);
-        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-        return new AccountToken(
-            user.Id,
-            user.Email ?? normalizedEmail,
-            token,
-            effectiveNowUtc.ToUniversalTime().AddHours(24));
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await userManager.UpdateSecurityStampAsync(user);
+            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+            var effectiveNow = effectiveNowUtc.ToUniversalTime();
+            EnqueueTokenNotification(
+                user,
+                "ACCOUNT_EMAIL_VERIFICATION",
+                "verification",
+                "/Account/VerifyEmail",
+                token,
+                effectiveNow);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new AccountToken(
+                user.Id,
+                user.Email ?? normalizedEmail,
+                token,
+                effectiveNow.AddHours(24));
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
     }
 
     public async Task<EmailVerificationResult> VerifyEmailAsync(
@@ -182,13 +202,32 @@ public sealed class IdentityAccountStore(
         }
 
         // Only the most recently requested reset link remains valid.
-        await userManager.UpdateSecurityStampAsync(user);
-        var token = await userManager.GeneratePasswordResetTokenAsync(user);
-        return new AccountToken(
-            user.Id,
-            user.Email ?? normalizedEmail,
-            token,
-            effectiveNowUtc.ToUniversalTime().AddMinutes(30));
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await userManager.UpdateSecurityStampAsync(user);
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+            var effectiveNow = effectiveNowUtc.ToUniversalTime();
+            EnqueueTokenNotification(
+                user,
+                "ACCOUNT_PASSWORD_RESET",
+                "password-reset",
+                "/Account/ResetPassword",
+                token,
+                effectiveNow);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new AccountToken(
+                user.Id,
+                user.Email ?? normalizedEmail,
+                token,
+                effectiveNow.AddMinutes(30));
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
     }
 
     public async Task<PasswordResetResult> ResetPasswordAsync(
@@ -248,20 +287,49 @@ public sealed class IdentityAccountStore(
         }
 
         var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-        var path = $"/Account/VerifyEmail?email={Uri.EscapeDataString(user.Email)}&token={Uri.EscapeDataString(token)}";
-        var baseUrl = configuration?["Notification:PublicBaseUrl"]?.TrimEnd('/');
-        var verificationUrl = string.IsNullOrWhiteSpace(baseUrl) ? path : baseUrl + path;
-        notificationOutboxWriter.Enqueue(new NotificationOutboxRequest(
-            $"account:{user.Id:D}:verification",
+        EnqueueTokenNotification(
+            user,
             "ACCOUNT_EMAIL_VERIFICATION",
+            "verification",
+            "/Account/VerifyEmail",
+            token,
+            createdAtUtc,
+            $"account:{user.Id:D}:verification",
+            $"account-registration:{user.Id:D}");
+    }
+
+    private void EnqueueTokenNotification(
+        ApplicationUser user,
+        string eventType,
+        string dedupeLabel,
+        string path,
+        string token,
+        DateTimeOffset createdAtUtc,
+        string? deduplicationKey = null,
+        string? correlationId = null)
+    {
+        if (notificationOutboxWriter is null || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return;
+        }
+
+        var urlPath = $"{path}?email={Uri.EscapeDataString(user.Email)}&token={Uri.EscapeDataString(token)}";
+        var baseUrl = configuration?["Notification:PublicBaseUrl"]?.TrimEnd('/');
+        var url = string.IsNullOrWhiteSpace(baseUrl) ? urlPath : baseUrl + urlPath;
+        notificationOutboxWriter.Enqueue(new NotificationOutboxRequest(
+            deduplicationKey ?? $"account:{user.Id:D}:{dedupeLabel}:resend:{Guid.NewGuid():N}",
+            eventType,
             "USER",
             user.Id.ToString("D"),
             user.AuthorizationVersion,
-            $"account-registration:{user.Id:D}",
+            correlationId ?? $"account:{user.Id:D}:resend",
             new NotificationPayload(
                 user.Email,
                 user.RealName,
-                new Dictionary<string, string?> { ["verificationUrl"] = verificationUrl },
+                new Dictionary<string, string?>
+                {
+                    [eventType == "ACCOUNT_PASSWORD_RESET" ? "resetUrl" : "verificationUrl"] = url,
+                },
                 user.Id),
             createdAtUtc));
     }

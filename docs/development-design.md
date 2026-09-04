@@ -239,7 +239,7 @@ Worker 使用 `FOR UPDATE SKIP LOCKED` 批量领取到期消息：
 5. 每条业务通知具有唯一去重键。SMTP 只能保证至少一次尝试，不能承诺严格 exactly-once。
 6. 续借或归还事务取消仍为 `PENDING` 的旧提醒并创建新事件；尚未转为 `SENDING` 的 `CLAIMED` 消息在 CAS 时复检并取消。`SENDING` 消息可能在随后续借/归还后送达；进程异常时转 `REVIEW_REQUIRED` 且不自动重发。SMTP 客户端超时为 10 秒，但进程暂停等故障使系统不能承诺硬性陈旧时间上界。
 
-当前已实现 `PostgresOutboxStore` 的短事务骨架：`PENDING` 到期行按 `available_at/created_at/event_id` 排序并使用 `FOR UPDATE SKIP LOCKED` 领取；领取提交后再以 `lease_id` 和 `locked_until` 做 `CLAIMED -> SENDING` 条件更新。`OutboxProcessor` 在该 CAS 提交后才解密 AES-GCM 负载、渲染版本化模板并调用 TLS SMTP 传输，将明确临时失败重置为 `PENDING`、永久拒绝转为 `DEAD_LETTER`、接受结果不确定转为 `REVIEW_REQUIRED`，并为每次发送尝试写入脱敏投递历史。账户注册以及借用、本人归还、强制归还、续借事务已经通过 `INotificationOutboxWriter` 原子追加加密事件；到期前/到期提醒计划、验证/重置重发事件和归还时取消旧提醒仍需后续接入。
+当前已实现 `PostgresOutboxStore` 的短事务骨架：`PENDING` 到期行按 `available_at/created_at/event_id` 排序并使用 `FOR UPDATE SKIP LOCKED` 领取；领取提交后再以 `lease_id` 和 `locked_until` 做 `CLAIMED -> SENDING` 条件更新。`OutboxProcessor` 在该 CAS 提交后才解密 AES-GCM 负载、渲染版本化模板并调用 TLS SMTP 传输，将明确临时失败重置为 `PENDING`、永久拒绝转为 `DEAD_LETTER`、接受结果不确定转为 `REVIEW_REQUIRED`，并为每次发送尝试写入脱敏投递历史。账户注册、验证/重置重发以及借用、本人归还、强制归还、续借事务已经通过 `INotificationOutboxWriter` 原子追加加密事件；借用创建提前/到期提醒计划，归还和续借会在 `PENDING/CLAIMED` 阶段取消旧提醒并创建新计划。基于聚合版本的额外发送前复检仍需后续强化。
 
 后台进程采用官方托管服务模型，参考 [ASP.NET Core Hosted Services](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-10.0)。
 

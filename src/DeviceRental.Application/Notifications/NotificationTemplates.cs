@@ -42,6 +42,9 @@ public sealed class NotificationTemplateRenderer : INotificationTemplateRenderer
             "LOAN_DUE" => (
                 "测试设备借用到期提醒",
                 $"{name}，\n\n设备：{Required(values, "deviceModel")}（{Required(values, "assetNumber")}）\n到期时间：{Required(values, "dueAt")}\n\n请及时归还设备或联系测试组管理员。"),
+            "LOAN_ADVANCE_REMINDER" => (
+                "测试设备即将到期提醒",
+                $"{name}，\n\n设备：{Required(values, "deviceModel")}（{Required(values, "assetNumber")}）\n到期时间：{Required(values, "dueAt")}\n\n设备将在约 2 小时后到期，请安排归还。"),
             "LOAN_RETURNED" => (
                 "测试设备已归还",
                 $"{name}，\n\n设备：{Required(values, "deviceModel")}（{Required(values, "assetNumber")}）\n归还时间：{Required(values, "returnedAt")}"),

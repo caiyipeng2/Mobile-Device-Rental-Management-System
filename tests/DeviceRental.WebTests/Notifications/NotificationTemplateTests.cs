@@ -37,6 +37,27 @@ public sealed class NotificationTemplateTests
 
     [Fact]
     [Trait("Category", "Web")]
+    [Trait("Requirement", "REQ-NOTIFY-002")]
+    public void Advance_reminder_template_contains_due_time()
+    {
+        var payload = new NotificationPayload(
+            "alice@example.com",
+            "Alice",
+            new Dictionary<string, string?>
+            {
+                ["deviceModel"] = "Pixel 9",
+                ["assetNumber"] = "DEV-037",
+                ["dueAt"] = "2026-09-05 10:00",
+            });
+
+        var rendered = new NotificationTemplateRenderer().Render(CreateClaim("LOAN_ADVANCE_REMINDER"), payload);
+
+        Assert.Contains("即将到期", rendered.Subject, StringComparison.Ordinal);
+        Assert.Contains("2026-09-05 10:00", rendered.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Web")]
     [Trait("Requirement", "REQ-NOTIFY-003")]
     public void Forced_return_template_contains_the_administrator_reason()
     {
