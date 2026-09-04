@@ -536,3 +536,74 @@ BEGIN
     END IF;
 END $EF$;
 COMMIT;
+
+START TRANSACTION;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903103214_NotificationDeliveryAndOperationalIndexes') THEN
+    CREATE TABLE device_rental.notification_deliveries (
+        id uuid NOT NULL,
+        event_id uuid NOT NULL,
+        dedupe_key character varying(256) NOT NULL,
+        recipient_user_id uuid,
+        recipient_key_version character varying(128),
+        recipient_ciphertext bytea,
+        channel character varying(32) NOT NULL,
+        template_identifier character varying(128) NOT NULL,
+        attempt_number integer NOT NULL,
+        started_at timestamp with time zone NOT NULL,
+        completed_at timestamp with time zone NOT NULL,
+        outcome character varying(32) NOT NULL,
+        acceptance_evidence character varying(16) NOT NULL,
+        acceptance_evidence_reference character varying(256),
+        sanitized_error character varying(2000),
+        CONSTRAINT "PK_notification_deliveries" PRIMARY KEY (id),
+        CONSTRAINT ck_notification_deliveries_event_nonzero CHECK (event_id <> '00000000-0000-0000-0000-000000000000'::uuid),
+        CONSTRAINT ck_notification_deliveries_id_nonzero CHECK (id <> '00000000-0000-0000-0000-000000000000'::uuid),
+        CONSTRAINT ck_notification_deliveries_outcome_tuple CHECK ((outcome = 'ACCEPTED' AND acceptance_evidence = 'ACCEPTED' AND acceptance_evidence_reference IS NOT NULL AND btrim(acceptance_evidence_reference) <> '' AND sanitized_error IS NULL) OR (outcome IN ('TRANSIENT_NOT_ACCEPTED', 'PERMANENT_REJECTED', 'ACCEPTANCE_UNKNOWN') AND sanitized_error IS NOT NULL AND btrim(sanitized_error) <> '' AND acceptance_evidence_reference IS NULL)),
+        CONSTRAINT ck_notification_deliveries_recipient_tuple CHECK ((recipient_user_id IS NOT NULL AND recipient_user_id <> '00000000-0000-0000-0000-000000000000'::uuid AND recipient_key_version IS NULL AND recipient_ciphertext IS NULL) OR (recipient_user_id IS NULL AND recipient_key_version IS NOT NULL AND btrim(recipient_key_version) <> '' AND recipient_ciphertext IS NOT NULL AND octet_length(recipient_ciphertext) > 0)),
+        CONSTRAINT ck_notification_deliveries_required_text CHECK (btrim(dedupe_key) <> '' AND btrim(channel) <> '' AND btrim(template_identifier) <> '' AND attempt_number > 0),
+        CONSTRAINT ck_notification_deliveries_time_order CHECK (completed_at >= started_at),
+        CONSTRAINT "FK_notification_deliveries_outbox_messages_event_id" FOREIGN KEY (event_id) REFERENCES device_rental.outbox_messages (event_id) ON DELETE RESTRICT,
+        CONSTRAINT "FK_notification_deliveries_users_recipient_user_id" FOREIGN KEY (recipient_user_id) REFERENCES device_rental.users (id) ON DELETE RESTRICT
+    );
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903103214_NotificationDeliveryAndOperationalIndexes') THEN
+    CREATE INDEX ix_outbox_messages_claimed_lease ON device_rental.outbox_messages (status, locked_until) WHERE status = 'CLAIMED';
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903103214_NotificationDeliveryAndOperationalIndexes') THEN
+    CREATE INDEX ix_outbox_messages_pending_due ON device_rental.outbox_messages (status, available_at) WHERE status = 'PENDING';
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903103214_NotificationDeliveryAndOperationalIndexes') THEN
+    CREATE INDEX ix_notification_deliveries_recipient ON device_rental.notification_deliveries (recipient_user_id);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903103214_NotificationDeliveryAndOperationalIndexes') THEN
+    CREATE UNIQUE INDEX ux_notification_deliveries_event_dedupe ON device_rental.notification_deliveries (event_id, dedupe_key);
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM device_rental."__EFMigrationsHistory" WHERE "MigrationId" = '20260903103214_NotificationDeliveryAndOperationalIndexes') THEN
+    INSERT INTO device_rental."__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+    VALUES ('20260903103214_NotificationDeliveryAndOperationalIndexes', '10.0.11');
+    END IF;
+END $EF$;
+COMMIT;

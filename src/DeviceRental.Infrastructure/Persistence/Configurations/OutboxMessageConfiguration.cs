@@ -88,6 +88,12 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
                 message.AggregateVersion,
             })
             .HasDatabaseName("ix_outbox_messages_aggregate_version");
+        builder.HasIndex(message => new { message.Status, message.AvailableAt })
+            .HasDatabaseName("ix_outbox_messages_pending_due")
+            .HasFilter("status = 'PENDING'");
+        builder.HasIndex(message => new { message.Status, message.LockedUntil })
+            .HasDatabaseName("ix_outbox_messages_claimed_lease")
+            .HasFilter("status = 'CLAIMED'");
     }
 
     private const string CompleteLease =

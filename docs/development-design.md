@@ -239,6 +239,8 @@ Worker 使用 `FOR UPDATE SKIP LOCKED` 批量领取到期消息：
 5. 每条业务通知具有唯一去重键。SMTP 只能保证至少一次尝试，不能承诺严格 exactly-once。
 6. 续借或归还事务取消仍为 `PENDING` 的旧提醒并创建新事件；尚未转为 `SENDING` 的 `CLAIMED` 消息在 CAS 时复检并取消。`SENDING` 消息可能在随后续借/归还后送达；进程异常时转 `REVIEW_REQUIRED` 且不自动重发。SMTP 客户端超时为 10 秒，但进程暂停等故障使系统不能承诺硬性陈旧时间上界。
 
+当前已实现 `PostgresOutboxStore` 的短事务骨架：`PENDING` 到期行按 `available_at/created_at/event_id` 排序并使用 `FOR UPDATE SKIP LOCKED` 领取；领取提交后再以 `lease_id` 和 `locked_until` 做 `CLAIMED -> SENDING` 条件更新。处理器在该 CAS 提交后才调用外部发送器，并将明确临时失败重置为 `PENDING`、永久拒绝转为 `DEAD_LETTER`、接受结果不确定转为 `REVIEW_REQUIRED`。收件人解密、模板渲染和 SMTP 连接仍由后续 Worker 阶段接入。
+
 后台进程采用官方托管服务模型，参考 [ASP.NET Core Hosted Services](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-10.0)。
 
 ## 9. Web 路由与接口

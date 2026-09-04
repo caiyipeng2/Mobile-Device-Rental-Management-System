@@ -16,6 +16,8 @@ public sealed class DeviceRentalDbContext(
 
     public DbSet<OutboxMessageRecord> OutboxMessages => Set<OutboxMessageRecord>();
 
+    public DbSet<NotificationDeliveryRecord> NotificationDeliveries => Set<NotificationDeliveryRecord>();
+
     public DbSet<DeviceRecord> Devices => Set<DeviceRecord>();
 
     public DbSet<DeviceImageMetadataRecord> DeviceImages => Set<DeviceImageMetadataRecord>();

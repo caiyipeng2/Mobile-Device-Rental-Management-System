@@ -47,7 +47,7 @@ REQ-AUDIT-003,Task 4,AtomicAuditOutboxTests,Planned
 REQ-NOTIFY-001,Task 9,NotificationTemplateTests,Planned
 REQ-NOTIFY-002,Task 9,LoanNotificationPlannerTests,Passing
 REQ-NOTIFY-003,Task 9,ForceReturnNotificationTests,Planned
-REQ-NOTIFY-004,Task 9,DeliveryFailureClassifierTests,Planned
+REQ-NOTIFY-004,Task 9,OutboxProcessorTests,Implemented
 REQ-NOTIFY-005,Task 9,LoanNotificationPlannerTests,Passing
 REQ-NOTIFY-006,Task 9,OutboxClaimConcurrencyTests,Planned
 REQ-NOTIFY-007,Task 9,OutboxSendingCasTests,Planned
