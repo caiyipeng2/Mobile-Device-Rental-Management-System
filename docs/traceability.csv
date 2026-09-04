@@ -51,7 +51,7 @@ REQ-NOTIFY-004,Task 9,OutboxProcessorTests,Implemented
 REQ-NOTIFY-005,Task 9,PostgresOutboxStoreTests,Implemented
 REQ-NOTIFY-006,Task 9,OutboxClaimConcurrencyTests,Planned
 REQ-NOTIFY-007,Task 9,OutboxSendingCasTests,Planned
-REQ-NOTIFY-008,Task 9,SelfReturnNotificationTests,Planned
+REQ-NOTIFY-008,Task 9,PostgresOutboxStoreTests,Implemented
 REQ-AUDIT-004,Task 10,AuditAuthorizationTests,Planned
 REQ-AUDIT-005,Task 10,ArchivedHistoryQueryTests,Planned
 NFR-COMP-001,Task 10,ResponsiveDeviceListTests,Planned

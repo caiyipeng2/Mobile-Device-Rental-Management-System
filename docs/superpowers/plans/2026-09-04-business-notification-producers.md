@@ -9,8 +9,9 @@
 - [x] Add the transactional Outbox writer and fail-closed/no-op composition for production and demo modes.
 - [x] Emit registration verification, verification/password-reset resend, borrowed, self-returned, forced-returned, and extended-loan events with recipient user IDs and operation timestamps.
 - [x] Schedule advance/due reminders from the domain planner and cancel pending or claimed reminders on return and extension before creating the replacement plan.
+- [x] Add loan-version, due-time, and returned-state checks to the reminder `CLAIMED -> SENDING` CAS and cover a real PostgreSQL processor-to-delivery scenario.
 - [x] Persist accepted, transient, permanent, and unknown SMTP outcomes with sanitized evidence and per-attempt dedupe.
 - [x] Cover encryption persistence, loan rollback on writer failure, lifecycle event payloads, delivery history, SMTP metadata, and CI test baselines.
-- [x] Verify Release build, 129 Unit tests, 39 Web tests, 52 PostgreSQL 18 database tests, migration artifact, and CI skeleton.
+- [x] Verify Release build, 129 Unit tests, 39 Web tests, 54 PostgreSQL 18 database tests, migration artifact, and CI skeleton.
 
-**Deferred follow-up:** add a database-side aggregate-version/expected-due recheck inside the `CLAIMED -> SENDING` CAS and add a dedicated end-to-end reminder worker scenario. The current lease and cancellation CAS prevents pending or claimed reminders from starting after a committed return/extension, while a message already in `SENDING` remains intentionally non-retractable.
+**Deferred follow-up:** add host-level `BackgroundService` shutdown/restart and backlog-load scenarios. The current lease, cancellation, and aggregate-state CAS prevents stale reminders from entering `SENDING` after a committed return/extension, while a message already in `SENDING` remains intentionally non-retractable.

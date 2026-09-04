@@ -1,4 +1,5 @@
 using System.Net;
+using DeviceRental.Application.Policy;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -36,7 +37,16 @@ public sealed class ProductionAccessGuardTests : IClassFixture<WebApplicationFac
         using var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal("/Account/Login?returnUrl=%2F", response.Headers.Location?.OriginalString);
+        var location = response.Headers.Location?.OriginalString;
+        var accessWindow = new AccessWindowPolicy().Evaluate(DateTimeOffset.UtcNow);
+        if (accessWindow.IsOpen)
+        {
+            Assert.Equal("/Account/Login?returnUrl=%2F", location);
+        }
+        else
+        {
+            Assert.StartsWith("/Closed?nextOpenUtc=", location, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

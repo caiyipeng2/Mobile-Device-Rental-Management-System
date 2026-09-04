@@ -91,7 +91,18 @@ public sealed class PostgresOutboxStore(DeviceRentalDbContext dbContext) : IOutb
                 message.EventId == eventId &&
                 message.Status == "CLAIMED" &&
                 message.LeaseId == leaseId &&
-                message.LockedUntil > now)
+                message.LockedUntil > now &&
+                ((message.EventType != "LOAN_ADVANCE_REMINDER" && message.EventType != "LOAN_DUE") ||
+                 (message.EventType == "LOAN_DUE" && dbContext.Loans.Any(loan =>
+                     loan.Id.ToString() == message.AggregateId &&
+                     loan.Version == message.AggregateVersion &&
+                     loan.ReturnedAt == null &&
+                     loan.DueAt == message.AvailableAt)) ||
+                 (message.EventType == "LOAN_ADVANCE_REMINDER" && dbContext.Loans.Any(loan =>
+                     loan.Id.ToString() == message.AggregateId &&
+                     loan.Version == message.AggregateVersion &&
+                     loan.ReturnedAt == null &&
+                     loan.DueAt == message.AvailableAt.AddHours(2)))))
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(message => message.Status, "SENDING")
                 .SetProperty(message => message.Attempts, message => message.Attempts + 1)

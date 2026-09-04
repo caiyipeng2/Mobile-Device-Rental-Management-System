@@ -180,7 +180,7 @@ jobs:
                   --configuration Release `
                   --no-build `
                   --filter Category=Database `
-                  --minimum-expected-tests 52 `
+                  --minimum-expected-tests 54 `
                   --fail-skips on `
                   --results-directory artifacts/integration-results/database `
                   --report-xunit-trx `

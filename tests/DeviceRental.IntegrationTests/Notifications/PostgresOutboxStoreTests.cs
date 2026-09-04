@@ -105,6 +105,80 @@ public sealed class PostgresOutboxStoreTests(PostgresTestEnvironment database)
 
     [Fact]
     [Trait("Category", "Database")]
+    [Trait("Requirement", "REQ-NOTIFY-008")]
+    public async Task TryStartSendingAsync_rejects_stale_or_returned_loan_reminders()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareDatabaseAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var borrowerId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var staleLoanId = Guid.NewGuid();
+        var returnedLoanId = Guid.NewGuid();
+        var currentLoanId = Guid.NewGuid();
+        var staleDeviceId = Guid.NewGuid();
+        var returnedDeviceId = Guid.NewGuid();
+        var currentDeviceId = Guid.NewGuid();
+        var policyId = Guid.NewGuid();
+        await using (var seed = CreateContext())
+        {
+            seed.Users.AddRange(
+                CreateUser(borrowerId, "borrower-stale@example.internal"),
+                CreateUser(actorId, "actor-stale@example.internal"));
+            seed.LoanPolicyVersions.Add(new LoanPolicyVersionRecord
+            {
+                Id = policyId,
+                VersionNumber = 1,
+                DurationMinutes = 1440,
+                EffectiveAtUtc = now.AddDays(-1),
+                ChangedByUserId = actorId,
+                Reason = "stale reminder test",
+            });
+            seed.Devices.AddRange(
+                CreateDevice(staleDeviceId, "STALE-001", now),
+                CreateDevice(returnedDeviceId, "RETURNED-001", now),
+                CreateDevice(currentDeviceId, "CURRENT-001", now));
+            seed.Loans.AddRange(
+                CreateLoan(staleLoanId, staleDeviceId, borrowerId, policyId, now, now.AddDays(1), version: 2),
+                CreateLoan(returnedLoanId, returnedDeviceId, borrowerId, policyId, now, now.AddDays(1), version: 2, returnedAt: now.AddMinutes(10)),
+                CreateLoan(currentLoanId, currentDeviceId, borrowerId, policyId, now.AddHours(-1), now, version: 1));
+            seed.OutboxMessages.AddRange(
+                CreateReminderMessage(staleLoanId, aggregateVersion: 1, "stale", now),
+                CreateReminderMessage(returnedLoanId, aggregateVersion: 2, "returned", now),
+                CreateReminderMessage(currentLoanId, aggregateVersion: 1, "current", now));
+            await seed.SaveChangesAsync(cancellationToken);
+        }
+
+        await using var context = CreateContext();
+        var store = new PostgresOutboxStore(context);
+        var claims = await context.OutboxMessages
+            .Where(value => value.EventType == "LOAN_DUE")
+            .Select(value => new { value.EventId, value.LeaseId, value.AggregateId })
+            .ToListAsync(cancellationToken);
+
+        Assert.Equal(3, claims.Count);
+        Assert.All(claims, value => Assert.NotNull(value.LeaseId));
+        var staleClaim = Assert.Single(claims, value => value.AggregateId == staleLoanId.ToString("D"));
+        var returnedClaim = Assert.Single(claims, value => value.AggregateId == returnedLoanId.ToString("D"));
+        var currentClaim = Assert.Single(claims, value => value.AggregateId == currentLoanId.ToString("D"));
+        Assert.False(await store.TryStartSendingAsync(staleClaim.EventId, staleClaim.LeaseId!.Value, now.AddMinutes(1), cancellationToken));
+        Assert.False(await store.TryStartSendingAsync(returnedClaim.EventId, returnedClaim.LeaseId!.Value, now.AddMinutes(1), cancellationToken));
+        Assert.True(await store.TryStartSendingAsync(currentClaim.EventId, currentClaim.LeaseId!.Value, now.AddMinutes(1), cancellationToken));
+
+        await using var verify = CreateContext();
+        Assert.All(await verify.OutboxMessages.Where(value => value.AggregateId != currentLoanId.ToString("D")).ToListAsync(cancellationToken), value =>
+        {
+            Assert.Equal("CLAIMED", value.Status);
+            Assert.Null(value.SendingStartedAt);
+        });
+        Assert.Equal("SENDING", await verify.OutboxMessages
+            .Where(value => value.AggregateId == currentLoanId.ToString("D"))
+            .Select(value => value.Status)
+            .SingleAsync(cancellationToken));
+    }
+
+    [Fact]
+    [Trait("Category", "Database")]
     [Trait("Requirement", "REQ-NOTIFY-005")]
     public async Task NotificationDelivery_DedupeKey_is_unique_per_event()
     {
@@ -207,7 +281,7 @@ public sealed class PostgresOutboxStoreTests(PostgresTestEnvironment database)
         {
             EventId = Guid.NewGuid(),
             DedupeKey = $"notification:{suffix}",
-            EventType = "LOAN_DUE",
+            EventType = "ACCOUNT_PASSWORD_RESET",
             AggregateType = "LOAN",
             AggregateId = Guid.NewGuid().ToString("D"),
             AggregateVersion = 1,
@@ -237,5 +311,82 @@ public sealed class PostgresOutboxStoreTests(PostgresTestEnvironment database)
             Outcome = "ACCEPTED",
             AcceptanceEvidence = "ACCEPTED",
             AcceptanceEvidenceReference = "smtp:accepted",
+        };
+
+    private static ApplicationUser CreateUser(Guid id, string email) => new()
+    {
+        Id = id,
+        UserName = email,
+        NormalizedUserName = email.ToUpperInvariant(),
+        Email = email,
+        NormalizedEmail = email.ToUpperInvariant(),
+        RealName = "Stale Reminder User",
+        IsActive = true,
+        AuthorizationVersion = 1,
+        LockoutEnabled = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow,
+    };
+
+    private static DeviceRecord CreateDevice(Guid id, string assetNumber, DateTimeOffset now) => new()
+    {
+        Id = id,
+        AssetNumber = assetNumber,
+        ModelName = "Pixel 9",
+        Tier = "HIGH",
+        ImageId = Guid.NewGuid(),
+        ManualState = "NORMAL",
+        IsArchived = false,
+        Version = 1,
+        CreatedAt = now,
+        UpdatedAt = now,
+    };
+
+    private static LoanRecord CreateLoan(
+        Guid id,
+        Guid deviceId,
+        Guid borrowerId,
+        Guid policyId,
+        DateTimeOffset borrowedAt,
+        DateTimeOffset dueAt,
+        long version,
+        DateTimeOffset? returnedAt = null) => new()
+        {
+            Id = id,
+            DeviceId = deviceId,
+            BorrowerId = borrowerId,
+            BorrowedAt = borrowedAt,
+            DueAt = dueAt,
+            PolicyVersionId = policyId,
+            ReturnedAt = returnedAt,
+            ReturnedByUserId = returnedAt is null ? null : borrowerId,
+            ReturnKind = returnedAt is null ? null : "SELF",
+            ReturnReason = null,
+            Version = version,
+        };
+
+    private static OutboxMessageRecord CreateReminderMessage(
+        Guid loanId,
+        long aggregateVersion,
+        string suffix,
+        DateTimeOffset now) => new()
+        {
+            EventId = Guid.NewGuid(),
+            DedupeKey = $"loan:{loanId:D}:v{aggregateVersion}:due:{suffix}",
+            EventType = "LOAN_DUE",
+            AggregateType = "LOAN",
+            AggregateId = loanId.ToString("D"),
+            AggregateVersion = aggregateVersion,
+            CorrelationId = $"loan:{loanId:D}:v{aggregateVersion}",
+            PayloadSchemaVersion = 1,
+            PayloadKeyVersion = "test-key-v1",
+            PayloadCiphertext = [1, 2, 3],
+            CreatedAt = now,
+            AvailableAt = now,
+            Status = "CLAIMED",
+            Attempts = 0,
+            LeaseId = Guid.NewGuid(),
+            LockedBy = "worker-a",
+            LockedUntil = now.AddMinutes(5),
         };
 }

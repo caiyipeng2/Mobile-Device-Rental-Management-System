@@ -57,8 +57,8 @@ if ($integrationJob -notmatch [regex]::Escape('tests/DeviceRental.UnitTests/Devi
 }
 
 if ($integrationJob -notmatch [regex]::Escape('--filter Category=Database') -or
-    $integrationJob -notmatch '(?s)--filter\s+Category=Database.*?--minimum-expected-tests\s+52') {
-    Add-Failure 'The integration job must require all 52 current database and persistence contract cases.'
+    $integrationJob -notmatch '(?s)--filter\s+Category=Database.*?--minimum-expected-tests\s+54') {
+    Add-Failure 'The integration job must require all 54 current database and persistence contract cases.'
 }
 
 if ($integrationJob -notmatch 'Publish database test failures' -or
