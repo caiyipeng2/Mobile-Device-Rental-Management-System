@@ -29,4 +29,4 @@
 ### Task 4: Verification And Handoff
 
 - [x] Run solution build, unit, Web, and PostgreSQL integration verification.
-- [x] Commit and push this stage; next stage produces encrypted account/loan outbox events inside business transactions and adds delivery-history writes from the processor.
+- [x] Commit and push this stage; the follow-up business-producer stage is tracked in `2026-09-04-business-notification-producers.md` and now covers encrypted account/loan events plus delivery-history writes.

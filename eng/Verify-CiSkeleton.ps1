@@ -36,10 +36,10 @@ $buildUnitJob = [regex]::Match(
     $workflow,
     '(?ms)^  build-unit:\s*$.*?(?=^  [A-Za-z0-9_-]+:\s*$|\z)').Value
 if ($buildUnitJob -notmatch [regex]::Escape('tests/DeviceRental.WebTests/DeviceRental.WebTests.csproj') -or
-    $buildUnitJob -notmatch '(?s)DeviceRental\.WebTests\.csproj.*?--minimum-expected-tests\s+37' -or
+    $buildUnitJob -notmatch '(?s)DeviceRental\.WebTests\.csproj.*?--minimum-expected-tests\s+38' -or
     $buildUnitJob -notmatch '(?s)DeviceRental\.WebTests\.csproj.*?--fail-skips\s+on' -or
     $buildUnitJob -notmatch [regex]::Escape('artifacts/test-results/web-health')) {
-    Add-Failure 'The build-unit job must require all 37 current Web tests and retain their TRX evidence.'
+    Add-Failure 'The build-unit job must require all 38 current Web tests and retain their TRX evidence.'
 }
 
 if ($buildUnitJob -notmatch '(?s)DeviceRental\.UnitTests\.csproj.*?--minimum-expected-tests\s+129') {
@@ -57,8 +57,8 @@ if ($integrationJob -notmatch [regex]::Escape('tests/DeviceRental.UnitTests/Devi
 }
 
 if ($integrationJob -notmatch [regex]::Escape('--filter Category=Database') -or
-    $integrationJob -notmatch '(?s)--filter\s+Category=Database.*?--minimum-expected-tests\s+44') {
-    Add-Failure 'The integration job must require all 44 current database and persistence contract cases.'
+    $integrationJob -notmatch '(?s)--filter\s+Category=Database.*?--minimum-expected-tests\s+48') {
+    Add-Failure 'The integration job must require all 48 current database and persistence contract cases.'
 }
 
 if ($integrationJob -notmatch 'Publish database test failures' -or

@@ -54,7 +54,7 @@ TIME-006,Task 4,AccessWindowPolicyTests,Planned
 TIME-007,Task 4,InteractiveCommandTransactionTests,Planned
 TIME-008,Task 11,ClockDriftAlertTests,Planned
 NOTIFY-001,Task 9,NotificationTemplateTests,Implemented
-NOTIFY-002,Task 9,ForceReturnNotificationTests,Planned
+NOTIFY-002,Task 9,EfDeviceCatalogStoreTests,Implemented
 NOTIFY-003,Task 9,OutboxProcessorTests,Implemented
 NOTIFY-004,Task 9,PostgresOutboxStoreTests,Implemented
 NOTIFY-005,Task 9,PostgresOutboxStoreTests,Implemented

@@ -101,6 +101,7 @@ public sealed class NotificationTemplateTests
     private static OutboxClaim CreateClaim(string eventType) => new(
         Guid.NewGuid(),
         Guid.NewGuid(),
+        "notification:template-1",
         eventType,
         "LOAN",
         Guid.NewGuid().ToString("D"),

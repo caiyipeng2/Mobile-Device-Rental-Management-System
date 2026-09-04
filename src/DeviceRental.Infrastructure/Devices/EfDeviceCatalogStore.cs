@@ -1,10 +1,12 @@
 using DeviceRental.Application.Devices;
+using DeviceRental.Application.Notifications;
 using DeviceRental.Domain.Common;
 using DeviceRental.Domain.Devices;
 using DeviceRental.Domain.Lending;
 using DeviceRental.Infrastructure.Persistence;
 using DeviceRental.Infrastructure.Persistence.Mappers;
 using DeviceRental.Infrastructure.Persistence.Records;
+using DeviceRental.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -15,7 +17,9 @@ namespace DeviceRental.Infrastructure.Devices;
 /// unique index is intentionally the final arbiter for competing borrow requests, rather than an
 /// application-side pre-check that would become stale before insertion.
 /// </summary>
-public sealed class EfDeviceCatalogStore(DeviceRentalDbContext dbContext) : IDeviceCatalogStore
+public sealed class EfDeviceCatalogStore(
+    DeviceRentalDbContext dbContext,
+    INotificationOutboxWriter? notificationOutboxWriter = null) : IDeviceCatalogStore
 {
     private const string OpenLoanUniqueIndex = "ux_loans_open_device";
     private readonly LoanExtensionPolicy _extensionPolicy = new();
@@ -70,6 +74,21 @@ public sealed class EfDeviceCatalogStore(DeviceRentalDbContext dbContext) : IDev
 
             var loanRecord = LoanRecordMapper.ToRecord(loan);
             dbContext.Loans.Add(loanRecord);
+            var borrower = await dbContext.Users.AsNoTracking()
+                .SingleAsync(user => user.Id == loan.BorrowerId, cancellationToken);
+            EnqueueLoanNotification(
+                loan,
+                loanRecord.Version,
+                "LOAN_BORROWED",
+                borrower,
+                loan.BorrowedAtUtc,
+                new Dictionary<string, string?>
+                {
+                    ["deviceModel"] = deviceRecord.ModelName,
+                    ["assetNumber"] = deviceRecord.AssetNumber,
+                    ["borrowedAt"] = loan.BorrowedAtUtc.ToString("yyyy-MM-dd HH:mm"),
+                    ["dueAt"] = loan.DueAtUtc.ToString("yyyy-MM-dd HH:mm"),
+                });
             try
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
@@ -121,6 +140,22 @@ public sealed class EfDeviceCatalogStore(DeviceRentalDbContext dbContext) : IDev
                 ReturnKind.Self,
                 returnReason: null);
             ApplyLoan(loanRecord, returnedLoan);
+            var device = await dbContext.Devices.AsNoTracking()
+                .SingleAsync(value => value.Id == deviceId, cancellationToken);
+            var borrower = await dbContext.Users.AsNoTracking()
+                .SingleAsync(user => user.Id == borrowerId, cancellationToken);
+            EnqueueLoanNotification(
+                returnedLoan,
+                loanRecord.Version,
+                "LOAN_RETURNED",
+                borrower,
+                returnedLoan.ReturnedAtUtc ?? returnedAtUtc,
+                new Dictionary<string, string?>
+                {
+                    ["deviceModel"] = device.ModelName,
+                    ["assetNumber"] = device.AssetNumber,
+                    ["returnedAt"] = returnedLoan.ReturnedAtUtc?.ToString("yyyy-MM-dd HH:mm"),
+                });
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return DeviceCatalogStoreWriteResult.Success(returnedLoan);
@@ -168,6 +203,20 @@ public sealed class EfDeviceCatalogStore(DeviceRentalDbContext dbContext) : IDev
             deviceRecord.TemporaryUnavailableReason = reason.Value;
             deviceRecord.Version++;
             deviceRecord.UpdatedAt = returnedAtUtc.ToUniversalTime();
+            var borrower = await dbContext.Users.AsNoTracking()
+                .SingleAsync(user => user.Id == returnedLoan.BorrowerId, cancellationToken);
+            EnqueueLoanNotification(
+                returnedLoan,
+                loanRecord.Version,
+                "LOAN_FORCED_RETURN",
+                borrower,
+                returnedAtUtc,
+                new Dictionary<string, string?>
+                {
+                    ["deviceModel"] = deviceRecord.ModelName,
+                    ["assetNumber"] = deviceRecord.AssetNumber,
+                    ["reason"] = reason.Value,
+                });
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return DeviceCatalogStoreWriteResult.Success(returnedLoan);
@@ -208,6 +257,22 @@ public sealed class EfDeviceCatalogStore(DeviceRentalDbContext dbContext) : IDev
                 reason,
                 effectiveNowUtc);
             ApplyLoan(loanRecord, result.UpdatedLoan);
+            var device = await dbContext.Devices.AsNoTracking()
+                .SingleAsync(value => value.Id == deviceId, cancellationToken);
+            var borrower = await dbContext.Users.AsNoTracking()
+                .SingleAsync(user => user.Id == result.UpdatedLoan.BorrowerId, cancellationToken);
+            EnqueueLoanNotification(
+                result.UpdatedLoan,
+                loanRecord.Version,
+                "LOAN_EXTENDED",
+                borrower,
+                effectiveNowUtc,
+                new Dictionary<string, string?>
+                {
+                    ["deviceModel"] = device.ModelName,
+                    ["assetNumber"] = device.AssetNumber,
+                    ["dueAt"] = result.UpdatedLoan.DueAtUtc.ToString("yyyy-MM-dd HH:mm"),
+                });
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return DeviceCatalogStoreWriteResult.Success(result.UpdatedLoan, result.Extension);
@@ -250,5 +315,29 @@ public sealed class EfDeviceCatalogStore(DeviceRentalDbContext dbContext) : IDev
         };
         record.ReturnReason = loan.ReturnReason?.Value;
         record.Version++;
+    }
+
+    private void EnqueueLoanNotification(
+        Loan loan,
+        long aggregateVersion,
+        string eventType,
+        ApplicationUser borrower,
+        DateTimeOffset createdAtUtc,
+        IReadOnlyDictionary<string, string?> values)
+    {
+        if (notificationOutboxWriter is null || string.IsNullOrWhiteSpace(borrower.Email))
+        {
+            return;
+        }
+
+        notificationOutboxWriter.Enqueue(new NotificationOutboxRequest(
+            $"loan:{loan.Id:D}:{eventType.ToLowerInvariant()}",
+            eventType,
+            "LOAN",
+            loan.Id.ToString("D"),
+            aggregateVersion,
+            $"loan:{loan.Id:D}:v{aggregateVersion}",
+            new NotificationPayload(borrower.Email, borrower.RealName, values, borrower.Id),
+            createdAtUtc));
     }
 }

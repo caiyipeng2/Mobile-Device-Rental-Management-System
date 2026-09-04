@@ -135,6 +135,63 @@ public sealed class PostgresOutboxStore(DeviceRentalDbContext dbContext) : IOutb
             sanitizedError,
             cancellationToken);
 
+    public async Task<bool> RecordDeliveryAsync(
+        OutboxClaim claim,
+        NotificationSendResult result,
+        DateTimeOffset startedAtUtc,
+        DateTimeOffset completedAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+        ArgumentNullException.ThrowIfNull(result);
+        if (result.RecipientUserId is null || string.IsNullOrWhiteSpace(result.TemplateIdentifier))
+        {
+            return false;
+        }
+
+        var delivery = new NotificationDeliveryRecord
+        {
+            Id = Guid.NewGuid(),
+            EventId = claim.EventId,
+            DedupeKey = $"{claim.DeduplicationKey}:attempt:{claim.AttemptCount + 1}",
+            RecipientUserId = result.RecipientUserId,
+            Channel = "EMAIL",
+            TemplateIdentifier = result.TemplateIdentifier,
+            AttemptNumber = claim.AttemptCount + 1,
+            StartedAt = startedAtUtc.ToUniversalTime(),
+            CompletedAt = completedAtUtc.ToUniversalTime(),
+            Outcome = result.Outcome switch
+            {
+                DeviceRental.Domain.Notifications.NotificationSendOutcome.Accepted => "ACCEPTED",
+                DeviceRental.Domain.Notifications.NotificationSendOutcome.TransientNotAccepted => "TRANSIENT_NOT_ACCEPTED",
+                DeviceRental.Domain.Notifications.NotificationSendOutcome.PermanentRejected => "PERMANENT_REJECTED",
+                DeviceRental.Domain.Notifications.NotificationSendOutcome.AcceptanceUnknown => "ACCEPTANCE_UNKNOWN",
+                _ => throw new ArgumentOutOfRangeException(nameof(result), result.Outcome, "Unsupported notification outcome."),
+            },
+            AcceptanceEvidence = result.AcceptanceEvidence switch
+            {
+                DeviceRental.Domain.Notifications.SmtpAcceptanceEvidence.Accepted => "ACCEPTED",
+                DeviceRental.Domain.Notifications.SmtpAcceptanceEvidence.NotAccepted => "NOT_ACCEPTED",
+                DeviceRental.Domain.Notifications.SmtpAcceptanceEvidence.Unknown => "UNKNOWN",
+                _ => throw new ArgumentOutOfRangeException(nameof(result), result.AcceptanceEvidence, "Unsupported SMTP evidence."),
+            },
+            AcceptanceEvidenceReference = result.AcceptanceEvidenceReference,
+            SanitizedError = result.SanitizedError,
+        };
+
+        dbContext.NotificationDeliveries.Add(delivery);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateException exception) when (IsDeliveryUniqueConflict(exception))
+        {
+            dbContext.Entry(delivery).State = EntityState.Detached;
+            return false;
+        }
+    }
+
     private async Task<bool> UpdateTerminalAsync(
         Guid eventId,
         Guid leaseId,
@@ -178,6 +235,7 @@ public sealed class PostgresOutboxStore(DeviceRentalDbContext dbContext) : IOutb
         new(
             record.EventId,
             leaseId,
+            record.DedupeKey,
             record.EventType,
             record.AggregateType,
             record.AggregateId,
@@ -190,4 +248,11 @@ public sealed class PostgresOutboxStore(DeviceRentalDbContext dbContext) : IOutb
             record.PayloadCiphertext is null
                 ? throw new InvalidOperationException("Outbox payload ciphertext is missing.")
                 : [.. record.PayloadCiphertext]);
+
+    private static bool IsDeliveryUniqueConflict(DbUpdateException exception) =>
+        exception.InnerException is Npgsql.PostgresException
+        {
+            SqlState: Npgsql.PostgresErrorCodes.UniqueViolation,
+            ConstraintName: "ux_notification_deliveries_event_dedupe",
+        };
 }

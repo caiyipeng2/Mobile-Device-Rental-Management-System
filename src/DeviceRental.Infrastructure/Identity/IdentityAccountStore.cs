@@ -1,14 +1,19 @@
 using DeviceRental.Application.Identity;
+using DeviceRental.Application.Notifications;
+using DeviceRental.Infrastructure.Notifications;
 using DeviceRental.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace DeviceRental.Infrastructure.Identity;
 
 public sealed class IdentityAccountStore(
     DeviceRentalDbContext dbContext,
     UserManager<ApplicationUser> userManager,
-    RoleManager<IdentityRole<Guid>> roleManager) : IAccountStore
+    RoleManager<IdentityRole<Guid>> roleManager,
+    INotificationOutboxWriter? notificationOutboxWriter = null,
+    IConfiguration? configuration = null) : IAccountStore
 {
     private static readonly string DummyPasswordHash = new PasswordHasher<ApplicationUser>()
         .HashPassword(new ApplicationUser { RealName = "dummy" }, "dummy password only used for timing parity");
@@ -60,6 +65,8 @@ public sealed class IdentityAccountStore(
             await transaction.RollbackAsync(cancellationToken);
             return AccountCreationResult.Failed();
         }
+
+        await EnqueueVerificationNotificationAsync(user, user.CreatedAt, cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
         return AccountCreationResult.Created(await ToSnapshotAsync(user));
@@ -228,6 +235,35 @@ public sealed class IdentityAccountStore(
             user.IsActive,
             user.AuthorizationVersion,
             user.LockoutEnd);
+    }
+
+    private async Task EnqueueVerificationNotificationAsync(
+        ApplicationUser user,
+        DateTimeOffset createdAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (notificationOutboxWriter is null || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return;
+        }
+
+        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+        var path = $"/Account/VerifyEmail?email={Uri.EscapeDataString(user.Email)}&token={Uri.EscapeDataString(token)}";
+        var baseUrl = configuration?["Notification:PublicBaseUrl"]?.TrimEnd('/');
+        var verificationUrl = string.IsNullOrWhiteSpace(baseUrl) ? path : baseUrl + path;
+        notificationOutboxWriter.Enqueue(new NotificationOutboxRequest(
+            $"account:{user.Id:D}:verification",
+            "ACCOUNT_EMAIL_VERIFICATION",
+            "USER",
+            user.Id.ToString("D"),
+            user.AuthorizationVersion,
+            $"account-registration:{user.Id:D}",
+            new NotificationPayload(
+                user.Email,
+                user.RealName,
+                new Dictionary<string, string?> { ["verificationUrl"] = verificationUrl },
+                user.Id),
+            createdAtUtc));
     }
 
     private static string ToIdentityRole(AccountRole role) => role switch

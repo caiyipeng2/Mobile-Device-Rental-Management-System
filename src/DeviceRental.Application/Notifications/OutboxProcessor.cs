@@ -46,7 +46,15 @@ public sealed class OutboxProcessor(
             }
 
             started++;
+            var deliveryStartedAtUtc = DateTimeOffset.UtcNow;
             var result = await SendSafelyAsync(claim, cancellationToken);
+            var deliveryCompletedAtUtc = DateTimeOffset.UtcNow;
+            await store.RecordDeliveryAsync(
+                claim,
+                result,
+                deliveryStartedAtUtc,
+                deliveryCompletedAtUtc,
+                cancellationToken);
             var disposition = DeliveryFailureClassifier.Classify(result.Outcome, result.AcceptanceEvidence);
             switch (disposition)
             {

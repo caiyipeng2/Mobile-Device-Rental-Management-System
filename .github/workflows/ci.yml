@@ -85,7 +85,7 @@ jobs:
           --project tests/DeviceRental.WebTests/DeviceRental.WebTests.csproj
           --configuration Release
           --no-build
-          --minimum-expected-tests 37
+          --minimum-expected-tests 38
           --fail-skips on
           --results-directory artifacts/test-results/web-health
           --report-xunit-trx
@@ -180,7 +180,7 @@ jobs:
                   --configuration Release `
                   --no-build `
                   --filter Category=Database `
-                  --minimum-expected-tests 44 `
+                  --minimum-expected-tests 48 `
                   --fail-skips on `
                   --results-directory artifacts/integration-results/database `
                   --report-xunit-trx `

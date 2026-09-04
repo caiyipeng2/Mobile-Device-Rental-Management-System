@@ -3,6 +3,7 @@ namespace DeviceRental.Application.Notifications;
 public sealed record OutboxClaim(
     Guid EventId,
     Guid LeaseId,
+    string DeduplicationKey,
     string EventType,
     string AggregateType,
     string AggregateId,
@@ -49,13 +50,22 @@ public interface IOutboxStore
         DateTimeOffset effectiveNowUtc,
         string sanitizedError,
         CancellationToken cancellationToken = default);
+
+    Task<bool> RecordDeliveryAsync(
+        OutboxClaim claim,
+        NotificationSendResult result,
+        DateTimeOffset startedAtUtc,
+        DateTimeOffset completedAtUtc,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record NotificationSendResult(
     DeviceRental.Domain.Notifications.NotificationSendOutcome Outcome,
     DeviceRental.Domain.Notifications.SmtpAcceptanceEvidence AcceptanceEvidence,
     string? AcceptanceEvidenceReference,
-    string? SanitizedError)
+    string? SanitizedError,
+    string? TemplateIdentifier = null,
+    Guid? RecipientUserId = null)
 {
     public static NotificationSendResult Accepted(string evidenceReference) =>
         new(DeviceRental.Domain.Notifications.NotificationSendOutcome.Accepted,
@@ -80,6 +90,9 @@ public sealed record NotificationSendResult(
             DeviceRental.Domain.Notifications.SmtpAcceptanceEvidence.Unknown,
             null,
             error);
+
+    public NotificationSendResult WithDeliveryMetadata(string templateIdentifier, Guid? recipientUserId) =>
+        this with { TemplateIdentifier = templateIdentifier, RecipientUserId = recipientUserId };
 }
 
 public interface INotificationSender
@@ -94,4 +107,20 @@ public interface INotificationPayloadCodec
     byte[] Encode(NotificationPayload payload, int schemaVersion);
 
     NotificationPayload Decode(OutboxClaim claim);
+}
+
+public sealed record NotificationOutboxRequest(
+    string DeduplicationKey,
+    string EventType,
+    string AggregateType,
+    string AggregateId,
+    long AggregateVersion,
+    string CorrelationId,
+    NotificationPayload Payload,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? AvailableAtUtc = null);
+
+public interface INotificationOutboxWriter
+{
+    void Enqueue(NotificationOutboxRequest request);
 }

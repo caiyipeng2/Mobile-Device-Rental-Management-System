@@ -1,4 +1,5 @@
 using DeviceRental.Application.Devices;
+using DeviceRental.Application.Notifications;
 using DeviceRental.Domain.Common;
 using DeviceRental.Domain.Devices;
 using DeviceRental.Domain.Lending;
@@ -84,6 +85,62 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
 
     [Fact]
     [Trait("Category", "Database")]
+    [Trait("Requirement", "REQ-NOTIFY-001")]
+    public async Task TryBorrowAsync_enqueues_a_borrowed_event_with_the_borrower_identity()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareDatabaseAsync(cancellationToken);
+        var borrower = await CreateUserAsync("borrower-event@example.internal", cancellationToken);
+        var device = CreateDevice("DEVICE-EVENT-001");
+        var now = DateTimeOffset.UtcNow;
+        await using (var seed = CreateContext())
+        {
+            seed.Devices.Add(DeviceRecordMapper.ToRecord(device, now, now));
+            await seed.SaveChangesAsync(cancellationToken);
+        }
+
+        var writer = new CapturingNotificationOutboxWriter();
+        var loan = Loan.Open(Guid.NewGuid(), device.Id, borrower.Id, now, now.AddDays(1), PolicyVersionId);
+        await using var context = CreateContext();
+        var result = await new EfDeviceCatalogStore(context, writer).TryBorrowAsync(loan, cancellationToken);
+
+        Assert.Equal(DeviceCatalogStoreWriteStatus.Succeeded, result.Status);
+        var notification = Assert.Single(writer.Requests);
+        Assert.Equal("LOAN_BORROWED", notification.EventType);
+        Assert.Equal("LOAN", notification.AggregateType);
+        Assert.Equal(loan.Id.ToString("D"), notification.AggregateId);
+        Assert.Equal(borrower.Id, notification.Payload.RecipientUserId);
+        Assert.Equal("DEVICE-EVENT-001", notification.Payload.Values["assetNumber"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Database")]
+    [Trait("Requirement", "REQ-NOTIFY-001")]
+    public async Task TryBorrowAsync_rolls_back_the_loan_when_outbox_enqueue_fails()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareDatabaseAsync(cancellationToken);
+        var borrower = await CreateUserAsync("borrower-rollback@example.internal", cancellationToken);
+        var device = CreateDevice("DEVICE-EVENT-002");
+        var now = DateTimeOffset.UtcNow;
+        await using (var seed = CreateContext())
+        {
+            seed.Devices.Add(DeviceRecordMapper.ToRecord(device, now, now));
+            await seed.SaveChangesAsync(cancellationToken);
+        }
+
+        await using var context = CreateContext();
+        var loan = Loan.Open(Guid.NewGuid(), device.Id, borrower.Id, now, now.AddDays(1), PolicyVersionId);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new EfDeviceCatalogStore(context, new ThrowingNotificationOutboxWriter())
+                .TryBorrowAsync(loan, cancellationToken));
+
+        await using var verify = CreateContext();
+        Assert.Empty(await verify.Loans.Where(value => value.DeviceId == device.Id).ToListAsync(cancellationToken));
+    }
+
+    [Fact]
+    [Trait("Category", "Database")]
     public async Task ReturnSelfAsync_OnlyClosesTheBorrowersOpenLoan()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -92,8 +149,9 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
         var anotherUser = await CreateUserAsync("other@example.internal", cancellationToken);
         var device = await CreateBorrowedDeviceAsync(borrower.Id, "DEVICE-003", cancellationToken);
         var returnedAt = DateTimeOffset.UtcNow.AddMinutes(5);
+        var writer = new CapturingNotificationOutboxWriter();
         await using var context = CreateContext();
-        var store = new EfDeviceCatalogStore(context);
+        var store = new EfDeviceCatalogStore(context, writer);
 
         var denied = await store.ReturnSelfAsync(device.Id, anotherUser.Id, returnedAt, cancellationToken);
         var returned = await store.ReturnSelfAsync(device.Id, borrower.Id, returnedAt, cancellationToken);
@@ -101,6 +159,9 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
         Assert.Equal(DeviceCatalogStoreWriteStatus.ReturnNotAuthorized, denied.Status);
         Assert.Equal(DeviceCatalogStoreWriteStatus.Succeeded, returned.Status);
         Assert.Equal(ReturnKind.Self, returned.Loan!.ReturnKind);
+        var notification = Assert.Single(writer.Requests);
+        Assert.Equal("LOAN_RETURNED", notification.EventType);
+        Assert.Equal(borrower.Id, notification.Payload.RecipientUserId);
         await using var verifyContext = CreateContext();
         var persisted = Assert.Single(await verifyContext.Loans.Where(loan => loan.DeviceId == device.Id)
             .ToListAsync(cancellationToken));
@@ -117,8 +178,9 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
         var borrower = await CreateUserAsync("borrower@example.internal", cancellationToken);
         var administrator = await CreateUserAsync("admin@example.internal", cancellationToken);
         var device = await CreateBorrowedDeviceAsync(borrower.Id, "DEVICE-004", cancellationToken);
+        var writer = new CapturingNotificationOutboxWriter();
         await using var context = CreateContext();
-        var store = new EfDeviceCatalogStore(context);
+        var store = new EfDeviceCatalogStore(context, writer);
 
         var result = await store.ForceReturnAndDisableAsync(
             device.Id,
@@ -129,6 +191,9 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
 
         Assert.Equal(DeviceCatalogStoreWriteStatus.Succeeded, result.Status);
         Assert.Equal(ReturnKind.Forced, result.Loan!.ReturnKind);
+        var notification = Assert.Single(writer.Requests);
+        Assert.Equal("LOAN_FORCED_RETURN", notification.EventType);
+        Assert.Equal(borrower.Id, notification.Payload.RecipientUserId);
         await using var verifyContext = CreateContext();
         var persistedDevice = await verifyContext.Devices.SingleAsync(value => value.Id == device.Id, cancellationToken);
         Assert.Equal("TEMPORARILY_DISABLED", persistedDevice.ManualState);
@@ -147,8 +212,9 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
         var administrator = await CreateUserAsync("admin@example.internal", cancellationToken);
         var device = await CreateBorrowedDeviceAsync(borrower.Id, "DEVICE-005", cancellationToken);
         var effectiveNow = DateTimeOffset.UtcNow.AddMinutes(5);
+        var writer = new CapturingNotificationOutboxWriter();
         await using var context = CreateContext();
-        var store = new EfDeviceCatalogStore(context);
+        var store = new EfDeviceCatalogStore(context, writer);
 
         var result = await store.ExtendAsync(
             device.Id,
@@ -160,6 +226,9 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
 
         Assert.Equal(DeviceCatalogStoreWriteStatus.Succeeded, result.Status);
         Assert.NotNull(result.Extension);
+        var notification = Assert.Single(writer.Requests);
+        Assert.Equal("LOAN_EXTENDED", notification.EventType);
+        Assert.Equal(borrower.Id, notification.Payload.RecipientUserId);
         await using var verifyContext = CreateContext();
         var persisted = await verifyContext.Loans.SingleAsync(value => value.DeviceId == device.Id, cancellationToken);
         Assert.Equal(result.Loan!.DueAtUtc, persisted.DueAt);
@@ -222,4 +291,17 @@ public sealed class EfDeviceCatalogStoreTests(PostgresTestEnvironment database)
 
     private static Device CreateDevice(string assetNumber, bool isArchived = false) =>
         new(Guid.NewGuid(), assetNumber, "Pixel 9", DeviceTier.High, Guid.NewGuid(), isArchived: isArchived);
+
+    private sealed class CapturingNotificationOutboxWriter : INotificationOutboxWriter
+    {
+        public List<NotificationOutboxRequest> Requests { get; } = [];
+
+        public void Enqueue(NotificationOutboxRequest request) => Requests.Add(request);
+    }
+
+    private sealed class ThrowingNotificationOutboxWriter : INotificationOutboxWriter
+    {
+        public void Enqueue(NotificationOutboxRequest request) =>
+            throw new InvalidOperationException("synthetic outbox failure");
+    }
 }

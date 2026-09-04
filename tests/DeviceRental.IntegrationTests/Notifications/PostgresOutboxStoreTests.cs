@@ -1,6 +1,9 @@
 using DeviceRental.Infrastructure.Notifications;
+using DeviceRental.Application.Notifications;
 using DeviceRental.Infrastructure.Persistence;
 using DeviceRental.Infrastructure.Persistence.Records;
+using DeviceRental.Domain.Notifications;
+using DeviceRental.Infrastructure.Identity;
 using DeviceRental.Testing;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -121,6 +124,56 @@ public sealed class PostgresOutboxStoreTests(PostgresTestEnvironment database)
         context.NotificationDeliveries.Add(CreateDelivery(message.EventId, "delivery:1"));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync(cancellationToken));
+    }
+
+    [Fact]
+    [Trait("Category", "Database")]
+    [Trait("Requirement", "REQ-NOTIFY-005")]
+    public async Task RecordDeliveryAsync_Persists_the_attempt_for_the_current_message()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareDatabaseAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        await SeedMessagesAsync(now, cancellationToken);
+
+        await using var context = CreateContext();
+        var store = new PostgresOutboxStore(context);
+        var claim = Assert.Single(await store.ClaimDueAsync(
+            now,
+            "worker-a",
+            1,
+            TimeSpan.FromMinutes(5),
+            cancellationToken));
+        Assert.True(await store.TryStartSendingAsync(claim.EventId, claim.LeaseId, now.AddMinutes(1), cancellationToken));
+
+        var recipient = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = "delivery@example.internal",
+            NormalizedUserName = "DELIVERY@EXAMPLE.INTERNAL",
+            Email = "delivery@example.internal",
+            NormalizedEmail = "DELIVERY@EXAMPLE.INTERNAL",
+            RealName = "Delivery User",
+            IsActive = true,
+            AuthorizationVersion = 1,
+            LockoutEnabled = true,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        context.Users.Add(recipient);
+        await context.SaveChangesAsync(cancellationToken);
+
+        var result = NotificationSendResult.Accepted("smtp:250").WithDeliveryMetadata(
+            "loan-borrowed-v1",
+            recipient.Id);
+        Assert.True(await store.RecordDeliveryAsync(claim, result, now.AddMinutes(1), now.AddMinutes(1), cancellationToken));
+
+        await using var verify = CreateContext();
+        var delivery = await verify.NotificationDeliveries.SingleAsync(cancellationToken);
+        Assert.Equal(claim.EventId, delivery.EventId);
+        Assert.Equal($"{claim.DeduplicationKey}:attempt:1", delivery.DedupeKey);
+        Assert.Equal("ACCEPTED", delivery.Outcome);
+        Assert.Equal("smtp:250", delivery.AcceptanceEvidenceReference);
     }
 
     private async Task PrepareDatabaseAsync(CancellationToken cancellationToken)

@@ -49,6 +49,7 @@ public sealed class SmtpNotificationSenderTests
     {
         var options = CreateOptions();
         var codec = new AesGcmNotificationPayloadCodec(options);
+        var recipientId = Guid.NewGuid();
         var payload = new NotificationPayload(
             "alice@example.com",
             "Alice",
@@ -57,7 +58,8 @@ public sealed class SmtpNotificationSenderTests
                 ["deviceModel"] = "Pixel 9",
                 ["assetNumber"] = "DEV-037",
                 ["dueAt"] = "2026-09-05 10:00",
-            });
+            },
+            recipientId);
         var transport = new FakeEmailTransport(new InvalidOperationException("socket timeout"));
         var sender = new SmtpNotificationSender(codec, new NotificationTemplateRenderer(), transport);
 
@@ -67,6 +69,8 @@ public sealed class SmtpNotificationSenderTests
 
         Assert.Equal(NotificationSendOutcome.AcceptanceUnknown, result.Outcome);
         Assert.Equal(SmtpAcceptanceEvidence.Unknown, result.AcceptanceEvidence);
+        Assert.Equal(recipientId, result.RecipientUserId);
+        Assert.Equal("LOAN_DUE", result.TemplateIdentifier);
         Assert.Contains("socket timeout", result.SanitizedError, StringComparison.Ordinal);
     }
 
@@ -111,6 +115,7 @@ public sealed class SmtpNotificationSenderTests
     private static OutboxClaim CreateClaim(string eventType, byte[] ciphertext) => new(
         Guid.NewGuid(),
         Guid.NewGuid(),
+        "notification:smtp-1",
         eventType,
         "LOAN",
         Guid.NewGuid().ToString("D"),

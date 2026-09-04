@@ -239,7 +239,7 @@ Worker 使用 `FOR UPDATE SKIP LOCKED` 批量领取到期消息：
 5. 每条业务通知具有唯一去重键。SMTP 只能保证至少一次尝试，不能承诺严格 exactly-once。
 6. 续借或归还事务取消仍为 `PENDING` 的旧提醒并创建新事件；尚未转为 `SENDING` 的 `CLAIMED` 消息在 CAS 时复检并取消。`SENDING` 消息可能在随后续借/归还后送达；进程异常时转 `REVIEW_REQUIRED` 且不自动重发。SMTP 客户端超时为 10 秒，但进程暂停等故障使系统不能承诺硬性陈旧时间上界。
 
-当前已实现 `PostgresOutboxStore` 的短事务骨架：`PENDING` 到期行按 `available_at/created_at/event_id` 排序并使用 `FOR UPDATE SKIP LOCKED` 领取；领取提交后再以 `lease_id` 和 `locked_until` 做 `CLAIMED -> SENDING` 条件更新。`OutboxProcessor` 在该 CAS 提交后才解密 AES-GCM 负载、渲染版本化模板并调用 TLS SMTP 传输，将明确临时失败重置为 `PENDING`、永久拒绝转为 `DEAD_LETTER`、接受结果不确定转为 `REVIEW_REQUIRED`。Worker 组合根通过 `WorkerOptions`、`SmtpOptions` 和 `NotificationEncryptionOptions` 注入这些依赖；业务事务生成账户/借用事件仍需下一步接入。
+当前已实现 `PostgresOutboxStore` 的短事务骨架：`PENDING` 到期行按 `available_at/created_at/event_id` 排序并使用 `FOR UPDATE SKIP LOCKED` 领取；领取提交后再以 `lease_id` 和 `locked_until` 做 `CLAIMED -> SENDING` 条件更新。`OutboxProcessor` 在该 CAS 提交后才解密 AES-GCM 负载、渲染版本化模板并调用 TLS SMTP 传输，将明确临时失败重置为 `PENDING`、永久拒绝转为 `DEAD_LETTER`、接受结果不确定转为 `REVIEW_REQUIRED`，并为每次发送尝试写入脱敏投递历史。账户注册以及借用、本人归还、强制归还、续借事务已经通过 `INotificationOutboxWriter` 原子追加加密事件；到期前/到期提醒计划、验证/重置重发事件和归还时取消旧提醒仍需后续接入。
 
 后台进程采用官方托管服务模型，参考 [ASP.NET Core Hosted Services](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-10.0)。
 
@@ -284,7 +284,7 @@ Razor 页面服务人类用户；写操作使用同源 POST 命令端点。MVP �
 - 首位管理员通过幂等的一次性部署命令创建；密码通过安全输入或一次性设置流程，不写入命令历史；命令记录部署操作者标识和原因。
 - ASP.NET Core Data Protection 密钥环持久化到共享受控存储，使用独立密钥静态加密；Web 身份最小权限访问并支持轮换。
 - 登录、验证和重置接口限流；错误文案不区分邮箱不存在或密码错误。
-- 邮箱验证令牌使用独立的 24 小时 Data Protection Provider，密码重置令牌使用独立的 30 分钟 Provider；两者均存放在 Identity `user_tokens` 表并通过一次性消费语义校验。验证成功写入 `email_verified_at`，密码重置递增 `authorization_version` 使旧会话失效。页面对未知邮箱统一返回已受理文案，令牌邮件投递由后续 Outbox Worker/SMTP 适配器完成。
+- 邮箱验证令牌使用独立的 24 小时 Data Protection Provider，密码重置令牌使用独立的 30 分钟 Provider；两者均存放在 Identity `user_tokens` 表并通过一次性消费语义校验。验证成功写入 `email_verified_at`，密码重置递增 `authorization_version` 使旧会话失效。页面对未知邮箱统一返回已受理文案，注册验证事件已由业务事务写入 Outbox；验证/重置重发事件仍需接入同一生产者。
 - 认证参数按 DEC-018：密码 12-128 字符并检查离线常见泄露列表；验证链接 24 小时、重置链接 30 分钟；Cookie 空闲 30 分钟、绝对 12 小时；账户 15 分钟内失败 5 次锁定 15 分钟，验证/重置邮件每账户每小时 3 次。
 - 不存在的邮箱也执行固定 dummy password hash 验证，并以规范化标识建立相同限流键；登录失败统一返回 401，达到阈值统一返回 `429 RATE_LIMITED + Retry-After`。验证/重置请求无论账户是否存在都返回相同 202、正文和异步路径。
 

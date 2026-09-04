@@ -20,10 +20,11 @@ public sealed class SmtpNotificationSender(
         OutboxClaim claim,
         CancellationToken cancellationToken = default)
     {
+        NotificationPayload? payload = null;
         RenderedNotification message;
         try
         {
-            var payload = payloadCodec.Decode(claim);
+            payload = payloadCodec.Decode(claim);
             message = templateRenderer.Render(claim, payload);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -32,12 +33,15 @@ public sealed class SmtpNotificationSender(
         }
         catch (Exception exception)
         {
-            return NotificationSendResult.PermanentFailure(SanitizeError(exception.Message));
+            return NotificationSendResult
+                .PermanentFailure(SanitizeError(exception.Message))
+                .WithDeliveryMetadata(claim.EventType, payload?.RecipientUserId);
         }
 
         try
         {
-            return await transport.SendAsync(message, cancellationToken);
+            var result = await transport.SendAsync(message, cancellationToken);
+            return result.WithDeliveryMetadata(claim.EventType, payload.RecipientUserId);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -45,7 +49,9 @@ public sealed class SmtpNotificationSender(
         }
         catch (Exception exception)
         {
-            return NotificationSendResult.AcceptanceUnknown(SanitizeError(exception.Message));
+            return NotificationSendResult
+                .AcceptanceUnknown(SanitizeError(exception.Message))
+                .WithDeliveryMetadata(claim.EventType, payload?.RecipientUserId);
         }
     }
 

@@ -20,6 +20,7 @@ public sealed class OutboxProcessorTests
         Assert.Equal(1, summary.Processed);
         Assert.Equal(0, summary.Retried);
         Assert.Equal(1, store.ProcessedCount);
+        Assert.Equal(1, store.DeliveryCount);
     }
 
     [Fact]
@@ -80,6 +81,7 @@ public sealed class OutboxProcessorTests
     private static OutboxClaim CreateClaim() => new(
         Guid.NewGuid(),
         Guid.NewGuid(),
+        "notification:claim-1",
         "LOAN_DUE",
         "LOAN",
         Guid.NewGuid().ToString("D"),
@@ -106,6 +108,8 @@ public sealed class OutboxProcessorTests
         public string? LastError { get; private set; }
 
         public OutboxStatus? FailureStatus { get; private set; }
+
+        public int DeliveryCount { get; private set; }
 
         public Task<IReadOnlyList<OutboxClaim>> ClaimDueAsync(
             DateTimeOffset effectiveNowUtc,
@@ -154,6 +158,17 @@ public sealed class OutboxProcessorTests
         {
             FailureStatus = status;
             LastError = sanitizedError;
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> RecordDeliveryAsync(
+            OutboxClaim claim,
+            NotificationSendResult result,
+            DateTimeOffset startedAtUtc,
+            DateTimeOffset completedAtUtc,
+            CancellationToken cancellationToken = default)
+        {
+            DeliveryCount++;
             return Task.FromResult(true);
         }
     }

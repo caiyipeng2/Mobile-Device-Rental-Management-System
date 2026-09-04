@@ -1,8 +1,11 @@
 using DeviceRental.Application.Identity;
 using DeviceRental.Application.Devices;
+using DeviceRental.Application.Notifications;
 using DeviceRental.Application.Policy;
 using DeviceRental.Infrastructure.Identity;
 using DeviceRental.Infrastructure.Images;
+using DeviceRental.Infrastructure.Notifications;
+using DeviceRental.Infrastructure.Options;
 using DeviceRental.Infrastructure.Persistence;
 using DeviceRental.Infrastructure.Devices;
 using DeviceRental.Web.Database;
@@ -18,6 +21,22 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton<InMemoryDeviceDeskService>();
 builder.Services.AddScoped<IDeviceCatalogStore, EfDeviceCatalogStore>();
+builder.Services.AddOptions<NotificationEncryptionOptions>()
+    .Bind(builder.Configuration.GetSection("NotificationEncryption"));
+builder.Services.AddScoped<INotificationOutboxWriter>(services =>
+{
+    var configuration = services.GetRequiredService<IConfiguration>();
+    if (configuration.GetValue<bool>("Demo:Enabled"))
+    {
+        return new NoopNotificationOutboxWriter();
+    }
+
+    return string.IsNullOrWhiteSpace(configuration["NotificationEncryption:CurrentKeyBase64"])
+        ? new UnconfiguredNotificationOutboxWriter()
+        : services.GetRequiredService<EfNotificationOutboxWriter>();
+});
+builder.Services.AddScoped<EfNotificationOutboxWriter>();
+builder.Services.AddScoped<INotificationPayloadCodec, AesGcmNotificationPayloadCodec>();
 builder.Services.AddScoped<ILoanPolicyStore, EfLoanPolicyStore>();
 builder.Services.AddScoped<DatabaseDeviceDeskService>();
 builder.Services.AddScoped<IDeviceDeskService>(services =>

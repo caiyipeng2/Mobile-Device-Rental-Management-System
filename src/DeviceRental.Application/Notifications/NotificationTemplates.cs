@@ -3,7 +3,8 @@ namespace DeviceRental.Application.Notifications;
 public sealed record NotificationPayload(
     string RecipientEmail,
     string RecipientDisplayName,
-    IReadOnlyDictionary<string, string?> Values);
+    IReadOnlyDictionary<string, string?> Values,
+    Guid? RecipientUserId = null);
 
 public sealed record RenderedNotification(
     string RecipientEmail,
